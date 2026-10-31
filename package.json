@@ -1,6 +1,6 @@
 {
   "name": "veil",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Masks your secrets before your coding agent's model sees them.",
   "license": "MIT",
   "author": "Gonçalo Neves (https://github.com/goncaloneves)",
@@ -10,7 +10,15 @@
     "url": "git+https://github.com/goncaloneves/veil.git"
   },
   "bugs": "https://github.com/goncaloneves/veil/issues",
-  "keywords": ["secrets", "masking", "redaction", "claude-code", "coding-agent", "gitleaks", "security"],
+  "keywords": [
+    "secrets",
+    "masking",
+    "redaction",
+    "claude-code",
+    "coding-agent",
+    "gitleaks",
+    "security"
+  ],
   "private": true,
   "type": "module",
   "engines": {

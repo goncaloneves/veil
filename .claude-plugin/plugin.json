@@ -1,10 +1,20 @@
 {
   "name": "veil",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Masks your secrets before the model sees them: the real values from your secret files plus gitleaks patterns, restored only inside file edits.",
-  "author": { "name": "Gonçalo Neves", "url": "https://github.com/goncaloneves" },
+  "author": {
+    "name": "Gonçalo Neves",
+    "url": "https://github.com/goncaloneves"
+  },
   "homepage": "https://github.com/goncaloneves/veil",
   "repository": "https://github.com/goncaloneves/veil",
   "license": "MIT",
-  "keywords": ["security", "secrets", "masking", "redaction", "privacy", "gitleaks"]
+  "keywords": [
+    "security",
+    "secrets",
+    "masking",
+    "redaction",
+    "privacy",
+    "gitleaks"
+  ]
 }
