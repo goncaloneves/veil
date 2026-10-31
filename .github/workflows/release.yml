@@ -3,12 +3,18 @@ name: release
 on:
   push:
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: An existing release tag, such as v0.1.0, to build, publish and pin again
+        required: true
 
 permissions:
   contents: read
 
 jobs:
   release-please:
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -24,15 +30,15 @@ jobs:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
       - name: Run CI on the release pull request
-        if: steps.release.outputs.pr != ''
+        if: steps.release.outputs.prs_created == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
-          BRANCH: ${{ fromJSON(steps.release.outputs.pr).headBranchName }}
-        run: gh workflow run ci.yml --ref "$BRANCH" --repo "$GITHUB_REPOSITORY"
+          PR: ${{ steps.release.outputs.pr }}
+        run: gh workflow run ci.yml --ref "$(jq -r .headBranchName <<<"$PR")" --repo "$GITHUB_REPOSITORY"
 
   build:
     needs: release-please
-    if: needs.release-please.outputs.created == 'true'
+    if: always() && (needs.release-please.outputs.created == 'true' || github.event_name == 'workflow_dispatch')
     strategy:
       matrix:
         include:
@@ -46,7 +52,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          ref: ${{ needs.release-please.outputs.tag }}
+          ref: ${{ inputs.tag || needs.release-please.outputs.tag }}
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
         with:
           bun-version: 1.4.4
@@ -67,13 +73,14 @@ jobs:
 
   publish:
     needs: [release-please, build]
+    if: always() && needs.build.result == 'success'
     runs-on: ubuntu-latest
     permissions:
       contents: write
       id-token: write
       attestations: write
     env:
-      TAG: ${{ needs.release-please.outputs.tag }}
+      TAG: ${{ inputs.tag || needs.release-please.outputs.tag }}
       GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
@@ -92,7 +99,7 @@ jobs:
     permissions:
       contents: write
     env:
-      TAG: ${{ needs.release-please.outputs.tag }}
+      TAG: ${{ inputs.tag || needs.release-please.outputs.tag }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
