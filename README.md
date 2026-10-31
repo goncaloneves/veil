@@ -52,11 +52,11 @@ DATABASE_URL=[veil:DATABASE_URL]
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/assets/architecture-dark.svg">
-    <img alt="veil reads your secret files and environment once, masks everything your coding agent sends to the model, and restores real values only into the file they came from" src="docs/assets/architecture-light.svg" width="100%">
+    <img alt="veil reads your secret files and environment, keeps the files current, masks every text your coding agent sends to the model, and restores real values only into their own file or one that already holds them" src="docs/assets/architecture-light.svg" width="100%">
   </picture>
 </p>
 
-1. **Read once.** When a session starts, veil reads the secrets you already keep: your project's `.env` files, the credentials in your home folder and well-known API keys in the environment.
+1. **Read your secrets.** When a session starts, veil reads the secrets you already keep: your project's `.env` files, the credentials in your home folder and secret variables in the environment, and it reads a file again when it changes.
 2. **Mask everything that goes out.** Every text the agent sends to the model passes through veil first, and in Claude Code and Pi so does every record the session file keeps. Each known value, and anything a pattern rule recognises, becomes a named placeholder such as `[veil:API_TOKEN]`.
 3. **Restore only where it belongs.** When the agent edits a file with a placeholder in it, veil writes the real value back only into the file that value came from, or one that already holds it. Anything else is refused, so a prompt injection cannot use veil to write your secret into a new place it could send it from.
 
