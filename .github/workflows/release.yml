@@ -42,13 +42,46 @@ jobs:
     strategy:
       matrix:
         include:
-          - { os: ubuntu-latest, target: linux-x64, run: true }
-          - { os: ubuntu-latest, target: linux-arm64, run: false }
-          - { os: ubuntu-latest, target: linux-x64-musl, run: false }
-          - { os: ubuntu-latest, target: linux-arm64-musl, run: false }
-          - { os: macos-latest, target: darwin-arm64, run: true }
-          - { os: macos-latest, target: darwin-x64, run: false }
+          - os: ubuntu-latest
+            target: linux-x64
+            bun: linux-x64-baseline
+            run: true
+          - os: ubuntu-latest
+            target: linux-arm64
+            bun: linux-arm64
+            run: false
+          - os: ubuntu-latest
+            target: linux-x64-musl
+            bun: linux-x64-musl-baseline
+            run: false
+          - os: ubuntu-latest
+            target: linux-arm64-musl
+            bun: linux-arm64-musl
+            run: false
+          - os: macos-latest
+            target: darwin-arm64
+            bun: darwin-arm64
+            run: true
+          - os: macos-latest
+            target: darwin-x64
+            bun: darwin-x64-baseline
+            run: false
+          - os: windows-latest
+            target: windows-x64
+            bun: windows-x64-baseline
+            ext: .exe
+            run: true
+          - os: windows-latest
+            target: windows-arm64
+            bun: windows-arm64
+            ext: .exe
+            run: false
     runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    env:
+      FILE: veil-${{ matrix.target }}${{ matrix.ext }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -56,24 +89,46 @@ jobs:
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
         with:
           bun-version: 1.4.4
-      - run: bun build src/cli/main.ts --compile --minify --target="bun-${{ matrix.target }}" --outfile "veil-${{ matrix.target }}"
+      - run: bun build src/cli/main.ts --compile --minify --target="bun-${{ matrix.bun }}" --outfile "$FILE"
       - name: Sign the macOS build
         if: startsWith(matrix.target, 'darwin')
         run: |
-          codesign --force --sign - "veil-${{ matrix.target }}"
-          codesign --verify "veil-${{ matrix.target }}"
+          codesign --force --sign - "$FILE"
+          codesign --verify "$FILE"
       - name: Run the build
         if: matrix.run
-        run: ./veil-${{ matrix.target }} version
+        run: ./"$FILE" version
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: veil-${{ matrix.target }}
-          path: veil-${{ matrix.target }}
+          path: ${{ env.FILE }}
+          if-no-files-found: error
+
+  adapters:
+    needs: release-please
+    if: always() && (needs.release-please.outputs.created == 'true' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ inputs.tag || needs.release-please.outputs.tag }}
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
+        with:
+          bun-version: 1.4.4
+      - run: bun run build:adapters
+      - name: Load each adapter the way its agent does
+        run: |
+          node --input-type=module -e "const m = await import('./dist/veil-pi.js'); if (typeof m.default !== 'function') process.exit(1)"
+          bun -e "const m = await import('./dist/veil-opencode.js'); if (typeof m.default?.server !== 'function') process.exit(1)"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: veil-adapters
+          path: dist/veil-*.js
           if-no-files-found: error
 
   publish:
-    needs: [release-please, build]
-    if: always() && needs.build.result == 'success'
+    needs: [release-please, build, adapters]
+    if: always() && needs.build.result == 'success' && needs.adapters.result == 'success'
     runs-on: ubuntu-latest
     permissions:
       contents: write
