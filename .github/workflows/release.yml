@@ -95,6 +95,7 @@ jobs:
 
   pin-marketplace:
     needs: [release-please, publish]
+    if: always() && needs.publish.result == 'success'
     runs-on: ubuntu-latest
     permissions:
       contents: write
