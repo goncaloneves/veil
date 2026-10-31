@@ -37,7 +37,7 @@
     "build:adapters": "bun build src/adapters/pi/index.ts --target=node --format=esm --outfile dist/veil-pi.js && bun build src/adapters/opencode/index.ts --target=node --format=esm --outfile dist/veil-opencode.js"
   },
   "devDependencies": {
-    "@types/node": "^24.19.2",
+    "@types/node": "^26.6.6",
     "typescript": "^7.0.2"
   }
 }
