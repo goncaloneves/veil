@@ -1,12 +1,30 @@
-# veil
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/logo-dark.svg">
+    <img alt="veil" src="docs/assets/logo-light.svg" width="280">
+  </picture>
+</p>
 
-**Masks your secrets before your coding agent's model sees them.**
+<p align="center"><strong>Masks your secrets before your coding agent's model sees them.</strong></p>
 
-[![ci](https://github.com/goncaloneves/veil/actions/workflows/ci.yml/badge.svg)](https://github.com/goncaloneves/veil/actions/workflows/ci.yml)
-[![release](https://img.shields.io/github/v/release/goncaloneves/veil)](https://github.com/goncaloneves/veil/releases)
-[![license](https://img.shields.io/github/license/goncaloneves/veil)](LICENSE)
+<p align="center">
+  <a href="https://github.com/goncaloneves/veil/actions/workflows/ci.yml"><img alt="ci" src="https://github.com/goncaloneves/veil/actions/workflows/ci.yml/badge.svg"></a>
+  <a href="https://github.com/goncaloneves/veil/releases"><img alt="release" src="https://img.shields.io/github/v/release/goncaloneves/veil?color=8B5CF6"></a>
+  <a href="LICENSE"><img alt="license" src="https://img.shields.io/github/license/goncaloneves/veil?color=6366F1"></a>
+  <img alt="Claude Code plugin" src="https://img.shields.io/badge/Claude%20Code-plugin-8B5CF6">
+  <img alt="no runtime dependencies" src="https://img.shields.io/badge/runtime%20dependencies-0-22C55E">
+</p>
 
-Coding agents read your files and run your commands, and everything they see goes to the model and into the session file on disk: the `.env` they open, the `docker inspect` they run, the key you paste into a prompt. veil sits inside the agent and swaps each secret for a named placeholder before any of that happens:
+<p align="center">
+  <a href="#install">Install</a> ·
+  <a href="#how-it-works">How it works</a> ·
+  <a href="#what-it-reads">What it reads</a> ·
+  <a href="#configure">Configure</a> ·
+  <a href="#commands">Commands</a> ·
+  <a href="#what-veil-cannot-do">Limits</a>
+</p>
+
+Coding agents read your files and run your commands, and everything they see goes to the model and into the session file on disk: the `.env` they open, the `docker inspect` they run, the key you paste into a prompt. veil sits inside the agent and swaps each secret for a named placeholder before any of that happens.
 
 ```text
 $ cat .env                                    # what runs on your machine
@@ -17,13 +35,28 @@ API_TOKEN=[veil:API_TOKEN]                    # what the model reads, and the tr
 DATABASE_URL=[veil:DATABASE_URL]
 ```
 
-- **It knows your real values, not just key formats.** veil reads the secrets you already keep, your project's `.env` files and the credentials in your home folder, and masks those exact values wherever they show up: shell output, logs, `docker inspect`, error messages, even base64-encoded or JSON-escaped. Pattern-only scanners miss a plain password, a custom token or one line of a private key. veil does not.
-- **It also catches secrets it has never seen.** The [gitleaks](https://github.com/gitleaks/gitleaks) rule set (217 rules, kept current every week), plus veil's own rule for passwords inside URLs, catch a key you paste or one in a file veil does not read.
-- **It covers the paths to the model.** Prompts, tool results and errors, Claude's own text, the system prompt and `CLAUDE.md`, attachments, skills, slash-command arguments, messages between sessions, and the tool records the screen and the session file keep.
-- **Claude still works with the secrets.** Placeholders keep their names, so Claude knows it is handling `DATABASE_URL`. When it edits the file a secret came from, or a file that already holds it, veil writes the real value back into that edit. It never writes one into a shell command or anywhere else.
-- **Nothing leaves your machine.** veil runs inside the agent, makes no network calls, starts no processes and never asks a model anything. It keeps real values in memory for the session and never writes or logs them.
+## Why veil
 
-veil works with **Claude Code** today, in the terminal, the VS Code and Cursor extension, and the desktop app. Its core is agent-neutral, built for adapters to other agents.
+- 🔑 **It knows your real values, not just key formats.** veil reads the secrets you already keep and masks those exact values wherever they show up: shell output, logs, `docker inspect`, error messages, even base64-encoded or JSON-escaped. Pattern-only scanners miss a plain password, a custom token or one line of a private key.
+- 🧭 **It also catches secrets it has never seen.** The [gitleaks](https://github.com/gitleaks/gitleaks) rule set, kept current every week, plus veil's own rule for passwords inside URLs.
+- 🛡️ **It covers the paths to the model.** Prompts, tool results and errors, Claude's own text, the system prompt and `CLAUDE.md`, attachments, skills, slash-command arguments, messages between sessions, and the records the screen and the session file keep.
+- ✍️ **Claude still works with your secrets.** Placeholders keep their names, and when Claude edits the file a secret came from, veil writes the real value back into that edit, and nowhere else.
+- 🏠 **Nothing leaves your machine.** No network calls, no processes, no model calls. Real values live in memory for the session and are never written or logged.
+
+## How it works
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/architecture-dark.svg">
+    <img alt="veil reads your secret files and environment once, masks everything your coding agent sends to the model, and restores real values only into the file they came from" src="docs/assets/architecture-light.svg" width="100%">
+  </picture>
+</p>
+
+1. **Read once.** When a session starts, veil reads the secrets you already keep: your project's `.env` files, the credentials in your home folder and well-known API keys in the environment.
+2. **Mask everything that goes out.** Every text the agent sends to the model or stores in its session file passes through veil first. Each known value, and anything a pattern rule recognises, becomes a named placeholder such as `[veil:API_TOKEN]`.
+3. **Restore only where it belongs.** When Claude edits a file with a placeholder in it, veil writes the real value back only into the file that value came from, or one that already holds it. Anything else is refused, so a prompt injection cannot plant your secret somewhere it can send it from.
+
+veil works with **Claude Code** today, in the terminal, the VS Code and Cursor extension, and the desktop app. Its core is agent-neutral, built for adapters to other agents; see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Install
 
@@ -133,15 +166,18 @@ From a shell, after installing the [command-line tool](INSTALL.md#command-line-t
 
 ## What veil cannot do
 
+> [!WARNING]
+> veil restores a value into an edit before Claude Code's permission step checks that edit, so in auto mode its permission classifier, and an approval card shown through Remote Control, can see the real value. If you use either, set `[restore] mode = "never"`.
+
 - **Change what your programs see.** Commands Claude runs still read real values, as they need to. veil changes only what reaches the model.
 - **Catch a secret it does not know and that has no known format,** such as a short password typed into a prompt.
 - **Catch a value transformed in other ways,** such as split across lines, hex-encoded or reversed. A pattern-matched token longer than 8 KB on a line longer than 32 KB can also slip between scan windows; a known value is matched anywhere.
 - **Reach text Claude Code adds after plugins run:** a prompt passed with `--append-system-prompt` is sent as written.
 - **Rewrite a few records Claude Code pins:** thinking blocks and the tool calls Claude writes. They only ever hold what Claude was shown, which veil masked.
-- **Hide a restored value from Claude Code's permission step.** veil restores a value into an edit before Claude Code checks the edit, so in auto mode its permission classifier, and an approval card shown through Remote Control, can see the real value. If you use either, set `[restore] mode = "never"`.
 - **Hide a value from the screen before it is masked.** Claude Code notes that the screen, an SDK stream or Remote Control may show a row just before plugins rewrite it. The model and the session file never read that form.
 
-veil is a strong second layer, not the first. Keep secrets out of reach in the first place: Claude Code's [deny rules](https://code.claude.com/docs/en/permissions) for `.env` and `~/.ssh` stop the reads veil would otherwise have to mask.
+> [!IMPORTANT]
+> veil is a strong second layer, not the first. Keep secrets out of reach in the first place: Claude Code's [deny rules](https://code.claude.com/docs/en/permissions) for `.env` and `~/.ssh` stop the reads veil would otherwise have to mask.
 
 ## Works well with
 

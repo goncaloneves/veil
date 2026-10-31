@@ -16,5 +16,6 @@
     "redaction",
     "privacy",
     "gitleaks"
-  ]
+  ],
+  "icon": "./docs/assets/icon.png"
 }

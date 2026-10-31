@@ -32,7 +32,8 @@
     "test": "node --test \"test/**/*.spec.ts\"",
     "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.core.json",
     "check": "npm run typecheck && npm test && claude plugin validate .",
-    "sync:gitleaks": "node scripts/sync-gitleaks.ts"
+    "sync:gitleaks": "node scripts/sync-gitleaks.ts",
+    "assets": "node scripts/assets.ts"
   },
   "devDependencies": {
     "@types/node": "^24.19.2",

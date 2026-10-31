@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="120" viewBox="0 0 360 120" role="img" aria-label="veil">
+  <g transform="translate(0 0) scale(1)">
+    <defs><linearGradient id="glogo" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#6366F1"/><stop offset="1" stop-color="#8B5CF6"/></linearGradient></defs>
+    <rect x="0" y="0" width="120" height="120" rx="30" fill="url(#glogo)"/>
+    <path d="M44 30 H32 V90 H44" fill="none" stroke="#FFFFFF" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M76 30 H88 V90 H76" fill="none" stroke="#FFFFFF" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="47" cy="60" r="6" fill="#FFFFFF"/><circle cx="60" cy="60" r="6" fill="#FFFFFF"/><circle cx="73" cy="60" r="6" fill="#FFFFFF"/>
+  </g>
+  <text x="146" y="88" font-family="ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="84" font-weight="700" letter-spacing="-3" fill="#E2E8F0">veil</text>
+</svg>
