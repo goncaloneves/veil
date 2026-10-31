@@ -5,8 +5,10 @@ import type { RuleSet } from '../src/core/types.ts'
 import { gitleaks } from '../src/rules/gitleaks.ts'
 import { ruleSet } from '../src/rules/index.ts'
 import { convertGitleaks, defang } from '../scripts/lib/gitleaks.ts'
-import { re2ToJs } from '../scripts/lib/re2.ts'
-import { fake, seeded } from './helpers.ts'
+import { anchorAlternation, re2ToJs } from '../scripts/lib/re2.ts'
+import { maxMatchLength, maxNewlines } from '../src/core/reach.ts'
+import { scanMode, segments } from '../src/core/rules.ts'
+import { fake, fakeToken, keyHeader, seeded } from './helpers.ts'
 
 describe('re2ToJs', () => {
   it('expands a leading (?i) into case classes', () => {
@@ -47,6 +49,47 @@ describe('re2ToJs', () => {
     assert.equal(re2ToJs('\\Aab\\z'), '^ab$')
     assert.equal(re2ToJs('(?P<k>x)'), '(?<k>x)')
     assert.ok(new RegExp(`^${re2ToJs('[[:alpha:]]+')}$`).test('Abc'))
+  })
+})
+
+describe('anchorAlternation', () => {
+  it('wraps a top-level alternation between ^ and $, as RE2 users mean it', () => {
+    assert.equal(anchorAlternation('^true|false|null$'), '^(?:true|false|null)$')
+    const re = new RegExp(anchorAlternation(re2ToJs('(?i)^true|false|null$')))
+    assert.ok(re.test('False') && !re.test(`x${'false'}y`) && !re.test('nullable'))
+  })
+
+  it('leaves patterns without a top-level alternation alone', () => {
+    for (const pattern of ['^(?:a|b)$', '^[a|b]+$', 'a|b', '^a\\|b$', '^a|b\\$']) assert.equal(anchorAlternation(pattern), pattern)
+  })
+})
+
+describe('maxMatchLength', () => {
+  it('bounds counted, optional and alternative parts and resolves back references', () => {
+    assert.equal(maxMatchLength('ab[cd]{2,5}'), 7)
+    assert.equal(maxMatchLength('x(?:ab|cde)?y'), 5)
+    assert.equal(maxMatchLength('(["\']?)v{3}\\1'), 5)
+    assert.equal(maxMatchLength('a(?=bbbb)(?<!c)\\bz'), 2)
+    assert.equal(maxMatchLength('\\x41\\u0042[^\\]]'), 3)
+  })
+
+  it('counts the most lines a match can span', () => {
+    assert.equal(maxNewlines('a\\nb'), 1)
+    assert.equal(maxNewlines('(?:[\\r\\n]{1,2}x){1,5}'), 10)
+    assert.equal(maxNewlines('[^\\n]*\\s{0,3}[^"]{0,2}'), 5)
+    assert.equal(maxNewlines('[^\\r\\n\\s]+'), 0)
+  })
+
+  it('reports unbounded parts', () => {
+    for (const pattern of ['a+', 'b*', 'c{2,}', '(?<n>a)\\k<n>']) assert.equal(maxMatchLength(pattern), Infinity)
+  })
+
+  it('puts short rules on windows, long ones on line groups and key blocks on keyword windows', () => {
+    const rule = (pattern: string, multiline?: boolean) => ({ id: 'x', pattern, keywords: [], secretGroup: 0, entropy: 0, allowlists: [], ...(multiline === undefined ? {} : { multiline }) })
+    assert.equal(scanMode(rule('ab[0-9]{40}')), 'window')
+    assert.equal(scanMode(rule('ey[A-Za-z0-9]{17,}')), 'lines')
+    assert.equal(scanMode(rule('a[\\s\\S]{1,9}b')), 'keyword')
+    assert.equal(scanMode(rule('ab', true)), 'keyword')
   })
 })
 
@@ -180,6 +223,59 @@ describe('rule matching', () => {
     const yaml = `db:\n  password:\n    ${secret}\nother: 1\n`
     const labels = findRuleSpans(yaml, compileRules(ruleSet)).map(span => yaml.slice(span.start, span.end))
     assert.ok(labels.some(text => text.includes(secret)), JSON.stringify(labels))
+  })
+
+  it('finds a short-rule match at every offset across window edges', () => {
+    const random = seeded(28)
+    const compiled = compileRules(ruleSet)
+    for (let at = 900; at < 3300; at += 37) {
+      const pat = fake.githubPat(random)
+      const text = `${'x '.repeat(at >> 1)}${at % 2 ? '' : ' '}${pat} tail`
+      const hit = findRuleSpans(text, compiled).find(span => span.label === 'github-pat')
+      assert.equal(hit && text.slice(hit.start, hit.end), pat, `missed at ${at}`)
+    }
+  })
+
+  it('never builds a line group or window longer than 12 KB', () => {
+    const texts = [`${'curl '.repeat(3277)}\n${'curl '.repeat(3277)}`, `${'a'.repeat(9000)}\n${'b'.repeat(9000)}\n${'c'.repeat(100)}`, 'x'.repeat(50_000)]
+    for (const text of texts) for (const part of segments(text, 16)) assert.ok(part.text.length <= 12_288, `${part.text.length}`)
+  })
+
+  it('finds a multi-line curl command and a wrapped Format-List value at every offset near a group edge', () => {
+    const random = seeded(30)
+    const compiled = compileRules(ruleSet)
+    const password = `${fakeToken(random, 12)}9x`
+    const token = fake.githubPat(random)
+    for (let pad = 7800; pad < 8300; pad += 23) {
+      const filler = Array.from({ length: Math.ceil(pad / 40) }, (_, i) => `filler line ${i} ${'.'.repeat(24)}`).join('\n').slice(0, pad)
+      const curl = `${filler}\ncurl \\\n  -X POST \\\n  -H 'Accept: */*' \\\n  -u admin:${password} https://h/api\n`
+      assert.ok(findRuleSpans(curl, compiled).some(span => curl.slice(span.start, span.end).includes(password)), `curl at ${pad}`)
+      const list = `${filler}\nName  : TOKEN\nValue : ${token.slice(0, 20)}\n        ${token.slice(20)}\n`
+      const hit = findRuleSpans(list, compiled).find(span => list.slice(span.start, span.end).includes(token.slice(20)))
+      assert.ok(hit, `list at ${pad}`)
+    }
+  })
+
+  it('finds private keys anywhere in a large text, many keywords apart', () => {
+    const random = seeded(29)
+    const body = Array.from({ length: 6 }, () => fakeToken(random, 64)).join('\n')
+    const key = `${keyHeader('RSA')}\n${body}\n${keyHeader('RSA', { end: true })}`
+    const filler = Array.from({ length: 4000 }, (_, i) => `line ${i} begin`).join('\n')
+    const text = `${filler}\n${key}\n${filler}\n${key}\n`
+    const spans = findRuleSpans(text, compileRules(ruleSet)).filter(span => span.label === 'private-key-block')
+    assert.equal(spans.length, 2)
+    for (const span of spans) assert.ok(text.slice(span.start, span.end).includes(body))
+  })
+
+  it('treats NUL and a lone carriage return as line ends without moving any offset', () => {
+    const random = seeded(27)
+    const pat = fake.githubPat(random)
+    const compiled = compileRules(ruleSet)
+    for (const separator of ['\0', '\r', '\n']) {
+      const text = `X=1${separator}GITHUB_TOKEN=${pat}${separator}Y=2`
+      const hit = findRuleSpans(text, compiled).find(span => span.label === 'github-pat')
+      assert.equal(hit && text.slice(hit.start, hit.end), pat, JSON.stringify(separator))
+    }
   })
 
   it('can turn rules off by id', () => {

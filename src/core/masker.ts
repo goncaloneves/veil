@@ -1,7 +1,10 @@
-import { findNeedles, needlesFor, type Needle, type Span } from './known.ts'
+import { inAssignment, isWholeToken } from './context.ts'
+import { NeedleIndex, needlesFor, type Found, type Needle, type Span } from './known.ts'
 import { MaskTimeout, compileRules, findRuleSpans, type CompiledRules } from './rules.ts'
+import { checkDeadline } from './timeout.ts'
 import type { Encoding, Hit, HitKind, Masked, Restored, RuleSet, Secret } from './types.ts'
 import { PLACEHOLDER, Vault, placeholder } from './vault.ts'
+import { interleaved, joinedLines, joinedList, toOriginal, unescaped, withoutAnsi, type View } from './views.ts'
 
 export { MaskTimeout }
 
@@ -27,8 +30,43 @@ export type MaskerInfo = {
 
 type Candidate = Span & { readonly kind: HitKind }
 
+const RULE_LABEL = /#[0-9a-f]{6,16}$/
+
+function accepts(text: string, found: Found): boolean {
+  const { needle, start, end } = found
+  if (needle.scope === 'anywhere') return true
+  if ((needle.scope === 'token' || needle.scope === 'either') && isWholeToken(text, start, end)) return true
+  return (needle.scope === 'context' || needle.scope === 'either') && inAssignment(text, start, end, needle.name)
+}
+
 function rank(a: Candidate, b: Candidate): number {
   return (a.kind === b.kind ? 0 : a.kind === 'known' ? -1 : 1) || b.end - b.start - (a.end - a.start) || a.start - b.start
+}
+
+function lastStartingBefore(spans: readonly Span[], position: number): Span | undefined {
+  let low = 0
+  let high = spans.length - 1
+  let best: Span | undefined
+  while (low <= high) {
+    const middle = (low + high) >> 1
+    const spot = spans[middle]
+    if (!spot) break
+    if (spot.start < position) {
+      best = spot
+      low = middle + 1
+    } else high = middle - 1
+  }
+  return best
+}
+
+function inside(spans: readonly Span[], candidate: Span): boolean {
+  const spot = lastStartingBefore(spans, candidate.start + 1)
+  return spot !== undefined && candidate.end <= spot.end
+}
+
+function overlaps(spans: readonly Span[], candidate: Span): boolean {
+  const spot = lastStartingBefore(spans, candidate.end)
+  return spot !== undefined && spot.end > candidate.start
 }
 
 export class Masker {
@@ -38,6 +76,7 @@ export class Masker {
   #rules: CompiledRules
   #needles: Needle[] = []
   #retired: Needle[] = []
+  #index = new NeedleIndex([])
 
   constructor(options: MaskerOptions) {
     this.vault = new Vault(options.salt)
@@ -80,50 +119,88 @@ export class Masker {
     const retired = [...this.#retired, ...this.#needles].filter(needle => !current.has(needle.text))
     this.#retired = [...new Map(retired.map(needle => [needle.text, needle])).values()]
     this.#needles = needles.sort((a, b) => b.text.length - a.text.length)
+    const all = [...this.#needles, ...this.#retired]
+    this.#index = new NeedleIndex(all)
   }
 
-  #reserved(text: string): Span[] {
-    const spans: Span[] = []
+  #found(view: View | string, deadline: number, crossingOnly = false): Candidate[] {
+    const text = typeof view === 'string' ? view : view.text
+    const out: Candidate[] = []
+    let checked = 0
+    for (const found of this.#index.find(text, deadline, crossingOnly)) {
+      if ((++checked & 4095) === 0) checkDeadline(deadline)
+      if (!crossingOnly && !accepts(text, found)) continue
+      const span = typeof view === 'string' ? found : toOriginal(view, found.start, found.end)
+      if (crossingOnly && span.end - span.start === found.needle.text.length) continue
+      out.push({ start: span.start, end: span.end, label: this.vault.labelOf(found.needle.text) ?? found.needle.label, kind: 'known' })
+    }
+    return out
+  }
+
+  #ruled(view: View, deadline: number): Candidate[] {
+    return findRuleSpans(view.text, this.#rules, deadline).map(span => ({ ...toOriginal(view, span.start, span.end), label: span.label, kind: 'rule' as const }))
+  }
+
+  #candidates(text: string, deadline: number): Candidate[] {
+    const out: Candidate[] = [...this.#found(text, deadline), ...findRuleSpans(text, this.#rules, deadline).map(span => ({ ...span, kind: 'rule' as const }))]
+    const joined = this.#index.anywhere ? joinedLines(text) : undefined
+    if (joined) out.push(...this.#found(joined, deadline, true))
+    for (const view of [withoutAnsi(text), unescaped(text), ...interleaved(text)]) {
+      if (view) out.push(...this.#found(view, deadline), ...this.#ruled(view, deadline))
+    }
+    const list = joinedList(text)
+    if (list) out.push(...this.#ruled(list, deadline))
+    return out
+  }
+
+  #reserved(text: string): { readonly known: Span[]; readonly rules: Span[]; readonly shaped: Span[] } {
+    const known: Span[] = []
+    const rules: Span[] = []
+    const shaped: Span[] = []
     for (const match of text.matchAll(PLACEHOLDER)) {
       const label = match[1] ?? ''
-      if (this.vault.text(label) !== undefined) spans.push({ start: match.index, end: match.index + match[0].length, label })
+      const span = { start: match.index, end: match.index + match[0].length, label }
+      shaped.push(span)
+      if (this.vault.text(label) !== undefined) {
+        known.push(span)
+        rules.push(span)
+      } else if (RULE_LABEL.test(label)) rules.push(span)
     }
-    return spans
+    return { known, rules, shaped }
   }
 
   mask(text: string, options: { readonly deadline?: number } = {}): Masked {
     if (!text) return { text, hits: [] }
     const deadline = options.deadline ?? (this.#budgetMs === Infinity ? Infinity : Date.now() + this.#budgetMs)
     const reserved = this.#reserved(text)
-    const candidates: Candidate[] = [
-      ...findNeedles(text, [...this.#needles, ...this.#retired]).map(span => ({
-        ...span,
-        label: this.vault.labelOf(text.slice(span.start, span.end)) ?? span.label,
-        kind: 'known' as const,
-      })),
-      ...findRuleSpans(text, this.#rules, deadline).map(span => ({ ...span, kind: 'rule' as const })),
-    ].filter(span => !reserved.some(spot => spot.start <= span.start && span.end <= spot.end))
+    const candidates: Candidate[] = []
+    let checked = 0
+    for (const candidate of this.#candidates(text, deadline)) {
+      if ((++checked & 4095) === 0) checkDeadline(deadline)
+      const held =
+        candidate.kind === 'known'
+          ? inside(reserved.known, candidate)
+          : overlaps(reserved.rules, candidate) || (overlaps(reserved.shaped, candidate) && !inside(reserved.shaped, candidate))
+      if (!held) candidates.push(candidate)
+    }
     if (candidates.length === 0) return { text, hits: [] }
     candidates.sort((a, b) => a.start - b.start || b.end - a.end)
-    const groups: Candidate[][] = []
-    let groupEnd = -1
+    checkDeadline(deadline)
+    const groups: { members: Candidate[]; start: number; end: number }[] = []
     for (const candidate of candidates) {
-      if (candidate.start < groupEnd) {
-        groups[groups.length - 1]?.push(candidate)
-        groupEnd = Math.max(groupEnd, candidate.end)
-      } else {
-        groups.push([candidate])
-        groupEnd = candidate.end
-      }
+      const last = groups[groups.length - 1]
+      if (last && candidate.start < last.end) {
+        last.members.push(candidate)
+        last.end = Math.max(last.end, candidate.end)
+      } else groups.push({ members: [candidate], start: candidate.start, end: candidate.end })
     }
     const hits: Hit[] = []
     let out = ''
     let cursor = 0
-    for (const group of groups) {
-      const primary = [...group].sort(rank)[0]
+    for (const { members, start, end } of groups) {
+      let primary = members[0]
+      for (const member of members) if (primary && rank(member, primary) < 0) primary = member
       if (!primary) continue
-      const start = Math.min(...group.map(span => span.start))
-      const end = Math.max(...group.map(span => span.end))
       const covered = text.slice(start, end)
       const whole = primary.start === start && primary.end === end
       const label = whole

@@ -3767,7 +3767,7 @@ export const gitleaks: RuleSet = {
   "allowlists": [
     {
       "patterns": [
-        "^[tT][rR][uU][eE]|[fF][aA][lL][sS][eE]|[nN][uU][lL][lL]$",
+        "^(?:[tT][rR][uU][eE]|[fF][aA][lL][sS][eE]|[nN][uU][lL][lL])$",
         "^(?:[aA]+|[bB]+|[cC]+|[dD]+|[eE]+|[fF]+|[gG]+|[hH]+|[iI]+|[jJ]+|[kK]+|[lL]+|[mM]+|[nN]+|[oO]+|[pP]+|[qQ]+|[rR]+|[sS]+|[tT]+|[uU]+|[vV]+|[wW]+|[xX]+|[yY]+|[zZ]+|\\*+|\\.+)$",
         "^\\$(?:\\d+|{\\d+})$",
         "^\\$(?:[A-Z_]+|[a-z_]+)$",

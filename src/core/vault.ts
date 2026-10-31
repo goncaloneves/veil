@@ -1,4 +1,5 @@
 import { fnv1a } from './encoding.ts'
+import { basename } from './paths.ts'
 import type { HitKind } from './types.ts'
 
 export const PLACEHOLDER = /\[veil:([A-Za-z0-9_.\/@:+~#-]+)\]/g
@@ -17,10 +18,6 @@ export type LabelStat = {
 
 function clean(base: string): string {
   return base.replace(UNSAFE, '_').replace(/^_+|_+$/g, '') || 'secret'
-}
-
-function basename(path: string): string {
-  return path.slice(path.lastIndexOf('/') + 1) || path
 }
 
 export class Vault {

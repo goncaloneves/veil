@@ -54,3 +54,16 @@ export function dirname(path: string): string {
 export function joinPath(dir: string, name: string): string {
   return /[\\/]$/.test(dir) ? `${dir}${name}` : `${dir}/${name}`
 }
+
+export function expandHome(path: string, home: string): string {
+  if (path === '~') return home
+  return /^~[\\/]/.test(path) ? joinPath(home, path.slice(2)) : path
+}
+
+export function isFilesystemRoot(path: string): boolean {
+  return /^(?:[A-Za-z]:)?[\\/]*$/.test(path)
+}
+
+export function lastSeparator(path: string): number {
+  return Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\'))
+}

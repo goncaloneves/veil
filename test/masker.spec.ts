@@ -6,6 +6,7 @@ import { MaskTimeout, Masker } from '../src/core/masker.ts'
 import { emptyRuleSet } from '../src/core/rules.ts'
 import type { Secret } from '../src/core/types.ts'
 import { gitleaks } from '../src/rules/gitleaks.ts'
+import { ruleSet } from '../src/rules/index.ts'
 import { fake, fakeToken, seeded } from './helpers.ts'
 
 function masker(secrets: Secret[], rules = false, salt = 'test-salt'): Masker {
@@ -94,6 +95,34 @@ describe('Masker with known values', () => {
     assert.ok(!m.mask(`[veil:${pat}]`).text.includes(pat))
   })
 
+  it('leaves placeholders from another session alone, even when no rule or value matches them now', () => {
+    const m = new Masker({ secrets: [], ruleSet, minLength: 8, encodings: ENCODINGS, salt: 'test-salt' })
+    for (const text of [
+      'DATABASE_URL=postgres://app:[veil:url-credentials#3fa2c1]@db/app',
+      'password: [veil:DB_PASSWORD]',
+      'Authorization: Bearer [veil:authorization-header#0a1b2c3d]',
+    ]) {
+      assert.equal(m.mask(text).text, text)
+    }
+  })
+
+  it('never re-masks a placeholder that a rule value runs into or out of', () => {
+    const random = seeded(31)
+    const known = new Masker({ secrets: [{ name: 'DB_PASSWORD', value: fake.password(random), source: '/r/.env' }], ruleSet, minLength: 8, encodings: ENCODINGS, salt: 'test-salt' })
+    const unknown = new Masker({ secrets: [], ruleSet, minLength: 8, encodings: ENCODINGS, salt: 'test-salt' })
+    for (const m of [known, unknown]) {
+      for (const text of [
+        'password=[veil:DB_PASSWORD];',
+        'password=[veil:DB_PASSWORD]x',
+        'PGPASSWORD=[veil:DB_PASSWORD]&&psql',
+        'password=[veil:DB_PASSWORD]\\n',
+        'secret: [veil:DB_PASSWORD]/[veil:DB_PASSWORD]',
+      ]) {
+        assert.equal(m.mask(text).text, text)
+      }
+    }
+  })
+
   it('still masks a known connection string wrapped to look like a placeholder', () => {
     const url = `postgres://app:${password}@db/app`
     const m = masker([{ name: 'DATABASE_URL', value: url, source: '/r/.env' }])
@@ -169,6 +198,45 @@ describe('Masker with pattern rules', () => {
   })
 })
 
+describe('Masker across separators', () => {
+  const random = seeded(16)
+  const entries = [
+    `GITHUB_TOKEN=${fake.githubPat(random)}`,
+    `AWS_ACCESS_KEY_ID=${fake.awsKeyId(random)}`,
+    `ANTHROPIC_API_KEY=${fake.anthropic(random, 'oat01')}`,
+    `API_KEY=${fake.hex(random, 16)}${fake.password(random)}`,
+    `REDIS_PASSWORD=${fake.symbolPassword(random)}`,
+    `SMTP_PASS=${fake.symbolPassword(random)}`,
+    `SLACK_TOKEN=${fake.slackBot(random)}`,
+    `SESSION_JWT=${fake.jwt(random, 40)}`,
+    `DATABASE_URL=postgres://app:${fake.password(random)}@db:5432/app`,
+  ]
+  const values = entries.map(entry => entry.slice(entry.indexOf('=') + 1).replace(/^postgres:\/\/app:|@db:5432\/app$/g, ''))
+
+  for (const [name, separator] of [
+    ['newlines', '\n'],
+    ['NUL bytes, as /proc/<pid>/environ and find -print0 print them', '\0'],
+    ['CRLF', '\r\n'],
+    ['lone carriage returns', '\r'],
+  ] as const) {
+    it(`masks every pattern-matched value in an environment separated by ${name}`, () => {
+      const m = new Masker({ secrets: [], ruleSet, minLength: 8, encodings: ENCODINGS, salt: 'sep-salt' })
+      const out = m.mask(`${entries.join(separator)}${separator}`).text
+      for (const value of values) assert.ok(!out.includes(value), `${value.slice(0, 12)} leaked: ${JSON.stringify(out.slice(0, 300))}`)
+    })
+  }
+
+  it('masks a known value next to a NUL and keeps every offset', () => {
+    const token = fake.hex(random, 40)
+    const m = masker([{ name: 'API_TOKEN', value: token, source: '/r/.env' }])
+    const out = m.mask(`A=1\0API_TOKEN=${token}\0B=2`)
+    assert.equal(out.text, 'A=1\0API_TOKEN=[veil:API_TOKEN]\0B=2')
+    assert.deepEqual(out.hits.map(hit => [hit.start, hit.end]), [[14, 54]])
+  })
+})
+
+const MARGIN = 350
+
 describe('Masker performance', () => {
   it('stays fast on large ordinary output', () => {
     const random = seeded(12)
@@ -189,20 +257,54 @@ describe('Masker performance', () => {
       lines.push(`${words.map(word => `${word}_${fakeToken(random, 24)}`).join('.')} = ${fakeToken(random, 60)}`)
     }
     const text = lines.join('\n')
+    const m = new Masker({ secrets: [], ruleSet, minLength: 8, encodings: ENCODINGS, salt: 'test-salt' })
     const started = performance.now()
     try {
-      masker([], true).mask(text, { deadline: Date.now() + 3000 })
+      m.mask(text, { deadline: Date.now() + 1000 })
     } catch (error) {
       assert.ok(error instanceof MaskTimeout)
     }
     const elapsed = performance.now() - started
-    assert.ok(elapsed < 8000, `took ${Math.round(elapsed)} ms, past what a Claude Code hook may spend`)
+    assert.ok(elapsed < 1000 + MARGIN, `took ${Math.round(elapsed)} ms for a 1000 ms deadline`)
+  })
+
+  it('checks the deadline while it filters tens of thousands of placeholders and hits', () => {
+    const random = seeded(19)
+    const token = fake.hex(random, 40)
+    const m = masker([{ name: 'API_TOKEN', value: token, source: '/r/.env' }])
+    const text = `[veil:API_TOKEN] ${token} `.repeat(30_000)
+    const started = performance.now()
+    try {
+      const out = m.mask(text, { deadline: Date.now() + 1000 })
+      assert.equal(out.hits.length, 30_000)
+    } catch (error) {
+      assert.ok(error instanceof MaskTimeout)
+    }
+    assert.ok(performance.now() - started < 1000 + MARGIN)
   })
 
   it('gives up with MaskTimeout once its deadline passes', () => {
     const random = seeded(14)
     const text = Array.from({ length: 5000 }, () => `api_key = "${fakeToken(random, 40)}"`).join('\n')
     assert.throws(() => masker([], true).mask(text, { deadline: Date.now() - 1 }), MaskTimeout)
+  })
+
+  it('fails closed when the known-value search passes its deadline', () => {
+    const random = seeded(17)
+    const secrets = Array.from({ length: 50 }, (_, i) => ({ name: `S${i}`, value: fake.hex(random, 40), source: '/r/.env' }))
+    assert.throws(() => masker(secrets).mask('nothing secret here', { deadline: Date.now() - 1 }), MaskTimeout)
+  })
+
+  it('searches thousands of known values in one pass', () => {
+    const random = seeded(18)
+    const secrets = Array.from({ length: 10_000 }, (_, i) => ({ name: `K${i}`, value: fakeToken(random, 32), source: '/r/.env' }))
+    const m = masker(secrets)
+    const text = secrets.slice(0, 6000).map(secret => `${secret.name}=${secret.value}`).join('\n')
+    const started = performance.now()
+    const out = m.mask(text, { deadline: Date.now() + 3000 })
+    const elapsed = performance.now() - started
+    assert.equal(out.hits.length, 6000)
+    assert.ok(elapsed < 1500, `masking ${Math.round(text.length / 1000)} KB took ${Math.round(elapsed)} ms`)
   })
 
   it('merges tens of thousands of hits in linear time', () => {

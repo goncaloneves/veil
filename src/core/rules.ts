@@ -1,6 +1,11 @@
 import { shannonEntropy } from './encoding.ts'
-import type { Allowlist, AllowTarget, RuleSet } from './types.ts'
+import type { Allowlist, AllowTarget, Rule, RuleSet } from './types.ts'
 import type { Span } from './known.ts'
+import { maxMatchLength, maxNewlines } from './reach.ts'
+import { MaskTimeout } from './timeout.ts'
+import { forRules } from './views.ts'
+
+export { MaskTimeout }
 
 type CompiledAllowlist = {
   readonly patterns: readonly RegExp[]
@@ -15,26 +20,36 @@ export type CompiledRule = {
   readonly secretGroup: number
   readonly entropy: number
   readonly needsDigit: boolean
-  readonly multiline: boolean
+  readonly mode: ScanMode
+  readonly reach: number
+  readonly global: boolean
+  readonly continuation?: RegExp
   readonly allowlists: readonly CompiledAllowlist[]
 }
+
+export type ScanMode = 'window' | 'lines' | 'keyword'
 
 export type CompiledRules = {
   readonly rules: readonly CompiledRule[]
   readonly allowlists: readonly CompiledAllowlist[]
   readonly failed: readonly string[]
-}
-
-export class MaskTimeout extends Error {
-  constructor() {
-    super('masking ran out of time')
-  }
+  readonly lineOverlap: number
 }
 
 const GROUP = 8192
-const LONG_LINE = 32768
+const LONG_LINE = 12288
 const LONG_OVERLAP = 8192
-const LINE_OVERLAP = 2
+const MIN_LINE_OVERLAP = 2
+const MAX_LINE_OVERLAP = 16
+const STOPWORD_MAX = 64
+const CONTINUATIONS = 64
+const WINDOW = 2048
+const WINDOW_REACH = 1024
+const SHORT_WINDOW = 1024
+const SHORT_REACH = 256
+const KEYWORD_BEFORE = 4096
+const KEYWORD_AFTER = 32768
+const KEYWORD_KEEP = 16384
 
 function compileAllowlist(allowlist: Allowlist): CompiledAllowlist | undefined {
   try {
@@ -46,6 +61,11 @@ function compileAllowlist(allowlist: Allowlist): CompiledAllowlist | undefined {
   } catch {
     return undefined
   }
+}
+
+export function scanMode(rule: Rule): ScanMode {
+  if (rule.multiline ?? rule.pattern.includes('\\s\\S')) return 'keyword'
+  return maxMatchLength(rule.pattern) <= WINDOW_REACH ? 'window' : 'lines'
 }
 
 export function compileRules(set: RuleSet, disabled: readonly string[] = []): CompiledRules {
@@ -62,14 +82,19 @@ export function compileRules(set: RuleSet, disabled: readonly string[] = []): Co
         secretGroup: rule.secretGroup,
         entropy: rule.entropy,
         needsDigit: rule.id.startsWith('generic'),
-        multiline: rule.pattern.includes('\\s\\S'),
+        mode: scanMode(rule),
+        ...(rule.continuation === undefined ? {} : { continuation: new RegExp(rule.continuation, 'y') }),
+        reach: maxMatchLength(rule.pattern) <= SHORT_REACH ? SHORT_REACH : WINDOW_REACH,
+        global: rule.own !== true,
         allowlists: rule.allowlists.flatMap(list => compileAllowlist(list) ?? []),
       })
     } catch {
       failed.push(rule.id)
     }
   }
-  return { rules, allowlists: set.allowlists.flatMap(list => compileAllowlist(list) ?? []), failed }
+  const spans = rules.filter(rule => rule.mode === 'lines').map(rule => maxNewlines(rule.pattern.source))
+  const lineOverlap = Math.min(MAX_LINE_OVERLAP, Math.max(MIN_LINE_OVERLAP, ...spans.map(span => span + 1)))
+  return { rules, allowlists: set.allowlists.flatMap(list => compileAllowlist(list) ?? []), failed, lineOverlap }
 }
 
 type Segment = {
@@ -78,7 +103,7 @@ type Segment = {
   readonly lower: string
 }
 
-export function segments(text: string): Segment[] {
+export function segments(text: string, overlap = MIN_LINE_OVERLAP): Segment[] {
   const lines: { start: number; end: number }[] = []
   for (let start = 0; ; ) {
     const newline = text.indexOf('\n', start)
@@ -87,10 +112,7 @@ export function segments(text: string): Segment[] {
     start = newline + 1
   }
   const out: Segment[] = []
-  const push = (start: number, end: number) => {
-    const slice = text.slice(start, end)
-    out.push({ start, text: slice, lower: slice.toLowerCase() })
-  }
+  const push = (start: number, end: number) => out.push(piece(text, start, end))
   for (let i = 0; i < lines.length; ) {
     const line = lines[i]
     if (!line) break
@@ -105,15 +127,59 @@ export function segments(text: string): Segment[] {
     let j = i
     for (;;) {
       const next = lines[j + 1]
-      if (!next || next.end - next.start > LONG_LINE) break
-      if (next.end - line.start > GROUP && j > i) break
+      if (!next) break
+      const size = next.end - line.start
+      if (size > LONG_LINE || (size > GROUP && j > i)) break
       j++
     }
     push(line.start, lines[j]?.end ?? line.end)
     if (j + 1 >= lines.length) break
-    i = Math.max(i + 1, j + 1 - LINE_OVERLAP)
+    i = Math.max(i + 1, j + 1 - overlap)
   }
   return out
+}
+
+function piece(text: string, start: number, end: number): Segment {
+  const slice = text.slice(start, end)
+  return { start, text: slice, lower: slice.toLowerCase() }
+}
+
+export function windows(text: string, reach = WINDOW_REACH): Segment[] {
+  const size = reach <= SHORT_REACH ? SHORT_WINDOW : WINDOW
+  const out: Segment[] = []
+  for (let at = 0; ; at += size - reach) {
+    out.push(piece(text, at, Math.min(text.length, at + size)))
+    if (at + size >= text.length) break
+  }
+  return out
+}
+
+export function keywordWindows(text: string, lower: string, keywords: readonly string[]): Segment[] {
+  if (lower.length !== text.length || keywords.length === 0) {
+    const out: Segment[] = []
+    for (let at = 0; ; at += KEYWORD_AFTER - KEYWORD_KEEP) {
+      out.push(piece(text, at, Math.min(text.length, at + KEYWORD_AFTER + KEYWORD_BEFORE)))
+      if (at + KEYWORD_AFTER + KEYWORD_BEFORE >= text.length) break
+    }
+    return out
+  }
+  const hits: number[] = []
+  for (const word of keywords) for (let at = lower.indexOf(word); at !== -1; at = lower.indexOf(word, at + 1)) hits.push(at)
+  hits.sort((a, b) => a - b)
+  const out: Segment[] = []
+  let end = -1
+  for (const hit of hits) {
+    if (hit + KEYWORD_KEEP <= end || end === text.length) continue
+    const start = Math.max(0, hit - KEYWORD_BEFORE)
+    end = Math.min(text.length, hit + KEYWORD_AFTER)
+    out.push(piece(text, start, end))
+  }
+  return out
+}
+
+function lastBreak(text: string, start: number, end: number): number {
+  const at = Math.max(text.lastIndexOf('\n', end - 1), text.lastIndexOf('\\n', end - 1), text.lastIndexOf(' ', end - 1), text.lastIndexOf('\t', end - 1))
+  return at > start ? at : end
 }
 
 function pickGroup(match: RegExpMatchArray, secretGroup: number): number {
@@ -131,7 +197,7 @@ function lineAround(text: string, start: number, end: number): string {
 function isAllowed(lists: readonly CompiledAllowlist[], secret: string, match: string, line: () => string): boolean {
   const lower = secret.toLowerCase()
   for (const list of lists) {
-    if (list.stopwords.some(word => lower.includes(word))) return true
+    if (secret.length <= STOPWORD_MAX && list.stopwords.some(word => lower.includes(word))) return true
     const target = list.target === 'match' ? match : list.target === 'line' ? line() : secret
     if (list.patterns.some(pattern => pattern.test(target))) return true
   }
@@ -142,11 +208,34 @@ function hasKeyword(lower: string, keywords: readonly string[]): boolean {
   return keywords.length === 0 || keywords.some(word => lower.includes(word))
 }
 
-export function findRuleSpans(text: string, compiled: CompiledRules, deadline = Infinity): Span[] {
+export function findRuleSpans(original: string, compiled: CompiledRules, deadline = Infinity): Span[] {
+  const text = forRules(original)
   const spans: Span[] = []
   const seen = new Set<string>()
   const lower = text.toLowerCase()
-  let parts: Segment[] | undefined
+  let lines: Segment[] | undefined
+  const fixed = new Map<number, Segment[]>()
+  const windowed = (reach: number) => {
+    const known = fixed.get(reach)
+    if (known) return known
+    const made = windows(text, reach)
+    fixed.set(reach, made)
+    return made
+  }
+  const extend = (pattern: RegExp, start: number, end: number): number => {
+    let reach = end
+    for (let round = 0; round < CONTINUATIONS && reach < text.length; round++) {
+      if (Date.now() > deadline) throw new MaskTimeout()
+      const from = lastBreak(text, start, reach)
+      const chunk = text.slice(from, from + KEYWORD_AFTER)
+      pattern.lastIndex = 0
+      const length = pattern.exec(chunk)?.[0].length ?? 0
+      if (from + length <= reach) break
+      reach = from + length
+      if (length < chunk.length) break
+    }
+    return reach
+  }
   const scan = (rule: CompiledRule, part: Segment) => {
     rule.pattern.lastIndex = 0
     for (const match of part.text.matchAll(rule.pattern)) {
@@ -158,10 +247,11 @@ export function findRuleSpans(text: string, compiled: CompiledRules, deadline = 
       if (rule.entropy > 0 && shannonEntropy(secret) <= rule.entropy) continue
       if (rule.needsDigit && !/\d/.test(secret)) continue
       const start = part.start + range[0]
-      const end = part.start + range[1]
+      const edge = part.start + part.text.length
+      const end = rule.continuation && part.start + range[1] === edge && edge < text.length ? extend(rule.continuation, start, edge) : part.start + range[1]
       const line = () => lineAround(text, start, end)
       if (isAllowed(rule.allowlists, secret, match[0], line)) continue
-      if (isAllowed(compiled.allowlists, secret, match[0], line)) continue
+      if (rule.global && isAllowed(compiled.allowlists, secret, match[0], line)) continue
       const key = `${start}:${end}:${rule.id}`
       if (seen.has(key)) continue
       seen.add(key)
@@ -171,11 +261,7 @@ export function findRuleSpans(text: string, compiled: CompiledRules, deadline = 
   for (const rule of compiled.rules) {
     if (Date.now() > deadline) throw new MaskTimeout()
     if (!hasKeyword(lower, rule.keywords)) continue
-    if (rule.multiline) {
-      scan(rule, { start: 0, text, lower })
-      continue
-    }
-    parts ??= segments(text)
+    const parts = rule.mode === 'keyword' ? keywordWindows(text, lower, rule.keywords) : rule.mode === 'window' ? windowed(rule.reach) : (lines ??= segments(text, compiled.lineOverlap))
     for (const part of parts) {
       if (Date.now() > deadline) throw new MaskTimeout()
       if (hasKeyword(part.lower, rule.keywords)) scan(rule, part)

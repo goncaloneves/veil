@@ -1,3 +1,4 @@
+import { pathKey } from '../src/core/paths.ts'
 import type { SourceFs } from '../src/sources/load.ts'
 
 export function seeded(seed: number): () => number {
@@ -37,11 +38,33 @@ export const fake = {
   slackBot: (random: () => number) => ['xo', 'xb-'].join('') + fakeToken(random, 11, '0123456789') + '-' + fakeToken(random, 12, '0123456789') + '-' + fakeToken(random, 24),
   hex: (random: () => number, length: number) => fakeToken(random, length, HEX),
   password: (random: () => number) => fakeToken(random, 20),
+  anthropic: (random: () => number, kind = 'api03') => `${['sk', 'ant', kind].join('-')}-${fakeToken(random, 93, `${ALNUM}-_`)}AA`,
+  googleAccess: (random: () => number) => `${['ya', '29.'].join('')}${fakeToken(random, 150, `${ALNUM}-_`)}`,
+  googleRefresh: (random: () => number) => `${['1/', '/0'].join('')}${fakeToken(random, 100, `${ALNUM}-_`)}`,
+  symbolPassword: (random: () => number, length = 16) => `${fakeToken(random, length - 4, `${ALNUM}!#%*^@&+=`)}Q7!z`,
   privateKey: (random: () => number) => {
     const body = Array.from({ length: 5 }, () => fakeToken(random, 64, `${ALNUM}+/`)).join('\n')
     const kind = ['OPENSSH', 'PRIVATE KEY'].join(' ')
     return `-----BEGIN ${kind}-----\n${body}\n-----END ${kind}-----`
   },
+}
+
+export const LOWER = 'abcdefghijklmnopqrstuvwxyz'
+
+export function keyHeader(kind = '', options: { readonly end?: boolean; readonly block?: boolean; readonly ssh2?: boolean } = {}): string {
+  const name = [kind, ['PRIV', 'ATE'].join(''), 'KEY', options.block ? 'BLOCK' : ''].filter(Boolean).join(' ')
+  const marker = options.end ? 'END' : 'BEGIN'
+  return options.ssh2 ? `---- ${marker} ${name} ----` : `-----${marker} ${name}-----`
+}
+
+export function utf16le(text: string): string {
+  return [...text].map(char => `${char}\0`).join('')
+}
+
+export function utf16leBase64(text: string): string {
+  const bytes: number[] = []
+  for (let i = 0; i < text.length; i++) bytes.push(text.charCodeAt(i) & 0xff, text.charCodeAt(i) >> 8)
+  return btoa(String.fromCharCode(...bytes))
 }
 
 export function memoryFs(files: Record<string, string>): SourceFs {
@@ -76,3 +99,53 @@ export function memoryFs(files: Record<string, string>): SourceFs {
     },
   }
 }
+
+export type PathFsOptions = {
+  readonly platform?: string
+  readonly denied?: readonly string[]
+  readonly onRead?: (path: string) => void
+}
+
+export function pathFs(files: Record<string, string>, options: PathFsOptions = {}): SourceFs {
+  const platform = options.platform ?? 'linux'
+  const key = (path: string) => pathKey(path, platform)
+  const texts = new Map<string, string>()
+  const dirs = new Map<string, Map<string, 'file' | 'dir'>>()
+  for (const [path, text] of Object.entries(files)) {
+    texts.set(key(path), text)
+    const parts = path.replace(/\\/g, '/').split('/')
+    for (let i = 1; i < parts.length; i++) {
+      const dir = key(parts.slice(0, i).join('/') || '/')
+      if (!dirs.has(dir)) dirs.set(dir, new Map())
+      dirs.get(dir)?.set(parts[i] ?? '', i === parts.length - 1 ? 'file' : 'dir')
+    }
+  }
+  const denied = new Set((options.denied ?? []).map(key))
+  const guard = (path: string) => {
+    if (denied.has(key(path))) throw Object.assign(new Error(`EACCES: permission denied, ${path}`), { code: 'EACCES' })
+  }
+  return {
+    read: async path => {
+      guard(path)
+      options.onRead?.(path)
+      const text = texts.get(key(path))
+      if (text === undefined) throw Object.assign(new Error(`ENOENT ${path}`), { code: 'ENOENT' })
+      return text
+    },
+    list: async dir => {
+      guard(dir)
+      const entries = dirs.get(key(dir))
+      if (!entries) throw Object.assign(new Error(`ENOENT ${dir}`), { code: 'ENOENT' })
+      return [...entries].map(([name, kind]) => ({ name, kind }))
+    },
+    exists: async path => texts.has(key(path)) || dirs.has(key(path)),
+    kindOf: async path => {
+      guard(path)
+      if (texts.has(key(path))) return 'file'
+      if (dirs.has(key(path))) return 'dir'
+      throw Object.assign(new Error(`ENOENT ${path}`), { code: 'ENOENT' })
+    },
+  }
+}
+
+export const PRINTABLE = Array.from({ length: 94 }, (_, index) => String.fromCharCode(33 + index)).join('')

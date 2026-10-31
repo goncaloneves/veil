@@ -1,6 +1,6 @@
 import { parseToml, type TomlTable, type TomlValue } from '../../src/config/toml.ts'
 import type { Allowlist, AllowTarget, Rule, RuleSet } from '../../src/core/types.ts'
-import { re2ToJs } from './re2.ts'
+import { anchorAlternation, re2ToJs } from './re2.ts'
 
 export type Conversion = {
   readonly ruleSet: RuleSet
@@ -27,7 +27,7 @@ function convertAllowlist(raw: TomlTable): Allowlist | undefined {
   const hasPaths = strings(raw.paths).length > 0
   const condition = typeof raw.condition === 'string' ? raw.condition.toUpperCase() : 'OR'
   if (hasPaths && condition === 'AND') return undefined
-  const patterns = strings(raw.regexes).map(source => defang(re2ToJs(source)))
+  const patterns = strings(raw.regexes).map(source => defang(anchorAlternation(re2ToJs(source))))
   const stopwords = strings(raw.stopwords)
   if (patterns.length === 0 && stopwords.length === 0) return undefined
   const target = (raw.regexTarget === 'match' || raw.regexTarget === 'line' ? raw.regexTarget : 'secret') as AllowTarget

@@ -210,3 +210,25 @@ export function re2ToJs(src: string): string {
   }
   return out
 }
+
+function topLevelBars(pattern: string): boolean {
+  let depth = 0
+  for (let at = 0; at < pattern.length; at++) {
+    const char = pattern[at]
+    if (char === '\\') at++
+    else if (char === '[') {
+      at++
+      if (pattern[at] === '^') at++
+      if (pattern[at] === ']') at++
+      while (at < pattern.length && pattern[at] !== ']') at += pattern[at] === '\\' ? 2 : 1
+    } else if (char === '(') depth++
+    else if (char === ')') depth--
+    else if (char === '|' && depth === 0) return true
+  }
+  return false
+}
+
+export function anchorAlternation(pattern: string): string {
+  const anchored = pattern.startsWith('^') && pattern.endsWith('$') && !pattern.endsWith('\\$')
+  return anchored && topLevelBars(pattern) ? `^(?:${pattern.slice(1, -1)})$` : pattern
+}

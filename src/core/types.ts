@@ -3,6 +3,7 @@ export type Secret = {
   readonly value: string
   readonly source: string
   readonly strong?: boolean
+  readonly sources?: readonly string[]
 }
 
 export type AllowTarget = 'secret' | 'match' | 'line'
@@ -20,6 +21,9 @@ export type Rule = {
   readonly secretGroup: number
   readonly entropy: number
   readonly allowlists: readonly Allowlist[]
+  readonly multiline?: boolean
+  readonly continuation?: string
+  readonly own?: boolean
 }
 
 export type RuleSet = {
