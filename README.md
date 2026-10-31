@@ -42,6 +42,7 @@ DATABASE_URL=[veil:DATABASE_URL]
 - 🛡️ **It covers the paths to the model.** Prompts, tool results and errors, Claude's own text, the system prompt and `CLAUDE.md`, attachments, skills, slash-command arguments, messages between sessions, and the records the screen and the session file keep.
 - ✍️ **Claude still works with your secrets.** Placeholders keep their names, and when Claude edits the file a secret came from, veil writes the real value back into that edit, and nowhere else.
 - 🏠 **Nothing leaves your machine.** No network calls, no processes, no model calls. Real values live in memory for the session and are never written or logged.
+- 📦 **Zero runtime dependencies.** A tool that sees your secrets should not pull in code you have not read. Nothing from npm is installed or loaded when veil runs: the plugin is veil's own small TypeScript, and `claude plugin validate .` lists every call it makes and every variable it reads.
 
 ## How it works
 
