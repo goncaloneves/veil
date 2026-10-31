@@ -21,6 +21,8 @@ const PASSWORD = fakeHex(11, 24)
 
 const CONFIG = '/home/me/.config/veil/config.toml'
 
+const LINKS: Record<string, string> = {}
+
 const FILES: Record<string, string> = {
   '/home/me/.config/veil/config.toml': '[sources]\nhome = false\nenvironment = false\n',
   '/repo/.env': `API_TOKEN=${TOKEN}\nDATABASE_URL=postgres://app:${PASSWORD}@db:5432/app\nNODE_ENV=development\n`,
@@ -42,8 +44,12 @@ function children(path: string): { name: string; kind: 'file' | 'dir'; size: num
 
 function world(on: On, extraConfig = ''): void {
   mock.env(on, { HOME: '/home/me' })
-  on('fs.read', (_$, e) => ({ value: e.path === CONFIG ? `${FILES[CONFIG]}${extraConfig}` : (FILES[e.path] ?? '') }))
-  on('fs.stat', (_$, e) => ({ value: { kind: e.path in FILES ? 'file' : children(e.path).length > 0 ? 'dir' : 'other', size: 0, mtimeMs: 0, isLink: false, realPath: e.path } }))
+  on('fs.read', (_$, e) => ({ value: e.path === CONFIG ? `${FILES[CONFIG]}${extraConfig}` : (FILES[LINKS[e.path] ?? e.path] ?? '') }))
+  on('fs.stat', (_$, e) => {
+    const kind = e.path in FILES ? 'file' : children(e.path).length > 0 ? 'dir' : undefined
+    if (kind === undefined) throw new Error(`ENOENT: no such file or directory, stat '${e.path}'`)
+    return { value: { kind, size: 0, mtimeMs: 0, isLink: e.path in LINKS, realPath: LINKS[e.path] ?? e.path } }
+  })
   on('fs.exists', (_$, e) => ({ value: e.path in FILES || children(e.path).length > 0 }))
   on('fs.list', (_$, e) => ({ value: children(e.path) }))
   on('session.root', () => ({ value: '/repo' }))
@@ -121,6 +127,57 @@ describe('veil in a Claude Code session', () => {
     expect(String(unknown.deny ?? unknown.text ?? '').includes('cannot resolve')).toBe(true)
   })
 
+  test('refuses to restore through a source that was swapped for a link after the session started', async ($, on) => {
+    world(on)
+    const written: Record<string, string> = {}
+    on('tool.call', (_$, e) => {
+      if (e.tool === 'Write') written[e.file_path] = e.content
+      return { result: {} }
+    })
+    await $.session.start(START)
+    LINKS['/repo/.env'] = '/repo/README.md'
+    try {
+      const swapped = await $.tool.call({ tool: 'Write', file_path: '/repo/.env', content: 'API_TOKEN=[veil:API_TOKEN]\n' })
+      expect(written['/repo/.env']).toBe(undefined)
+      expect(typeof swapped.deny).toBe('string')
+    } finally {
+      delete LINKS['/repo/.env']
+    }
+  })
+
+  test('picks up a secret added to .env after the session started when the file is read', async ($, on) => {
+    world(on)
+    const added = fakeHex(13, 32)
+    const before = FILES['/repo/.env'] ?? ''
+    on('tool.call', (_$, e) => (e.tool === 'Read' ? { result: { file: { content: FILES['/repo/.env'] } } } : { result: {} }))
+    await $.session.start(START)
+    FILES['/repo/.env'] = `${before}SIGNING_SECRET=${added}\n`
+    try {
+      const read = await $.tool.call({ tool: 'Read', file_path: '/repo/.env' })
+      const record = JSON.stringify(read)
+      expect(record.includes(added)).toBe(false)
+      expect(record.includes('[veil:SIGNING_SECRET]')).toBe(true)
+    } finally {
+      FILES['/repo/.env'] = before
+    }
+  })
+
+  test('refuses an MCP tool call that names a file and holds a placeholder, and lets others through', async ($, on) => {
+    world(on)
+    const ran: string[] = []
+    on('tool.call', (_$, e) => {
+      ran.push(e.tool)
+      return { result: {} }
+    })
+    await $.session.start(START)
+    const refused = await $.tool.call({ tool: 'mcp__files__write_file', path: '/repo/.env', content: 'K=[veil:API_TOKEN]' } as never)
+    const allowed = await $.tool.call({ tool: 'mcp__search__query', query: 'how to rotate [veil:API_TOKEN]' } as never)
+    expect(typeof refused.deny).toBe('string')
+    expect(String(refused.deny).includes('cannot write real values through mcp__files__write_file')).toBe(true)
+    expect(allowed.deny).toBe(undefined)
+    expect(ran).toEqual(['mcp__search__query'])
+  })
+
   test("masks a failed tool's error before the transcript keeps it", async ($, on) => {
     world(on)
     on('tool.call', () => ({ isError: true, result: `Error: Exit code 3\nAPI_TOKEN=${TOKEN}`, text: `Error: Exit code 3\nAPI_TOKEN=${TOKEN}` }))
@@ -196,5 +253,82 @@ describe('veil in a Claude Code session', () => {
     expect(text.includes('masking 3 known values')).toBe(true)
     expect(text.includes('/repo/.env (dotenv): 3 values')).toBe(true)
     expect(text.includes(TOKEN)).toBe(false)
+  })
+})
+
+function sourcesWorld(on: On, env: Record<string, string>, files: Record<string, string>, cwd: string, logged: string[] = []): void {
+  mock.env(on, env)
+  const list = (path: string) => {
+    const prefix = path.endsWith('/') || path.endsWith('\\') ? path : `${path}${path.includes('\\') ? '\\' : '/'}`
+    const names = new Map<string, 'file' | 'dir'>()
+    for (const file of Object.keys(files)) {
+      if (!file.startsWith(prefix)) continue
+      const rest = file.slice(prefix.length)
+      const cut = rest.search(/[\\/]/)
+      names.set(cut === -1 ? rest : rest.slice(0, cut), cut === -1 ? 'file' : 'dir')
+    }
+    return [...names].map(([name, kind]) => ({ name, kind, size: 0, mtimeMs: 0, isLink: false }))
+  }
+  on('fs.read', (_$, e) => ({ value: files[e.path] ?? '' }))
+  on('fs.stat', (_$, e) => ({ value: { kind: e.path in files ? 'file' : list(e.path).length > 0 ? 'dir' : 'other', size: 0, mtimeMs: 0, isLink: false, realPath: e.path } }))
+  on('fs.exists', (_$, e) => ({ value: e.path in files || list(e.path).length > 0 }))
+  on('fs.list', (_$, e) => ({ value: list(e.path) }))
+  on('session.root', () => ({ value: cwd }))
+  on('session.cwd', () => ({ value: cwd }))
+  on('command.register', () => ({ value: { command: 'veil' } }))
+  on('ui.log', (_$, e) => {
+    logged.push(e.text)
+    return { value: undefined }
+  })
+  on('session.start', (_$, e) => ({ cwd: e.cwd }))
+}
+
+describe('veil sources in a Claude Code session', () => {
+  test('on Linux, masks any secret-named variable from /proc/self/environ', async ($, on) => {
+    const secret = fakeHex(23, 32)
+    sourcesWorld(on, { HOME: '/home/me' }, { '/proc/self/environ': `PATH=/usr/bin\0POSTGRES_ADMIN_PASSWORD=${secret}\0HOME=/home/me\0` }, '/repo')
+    const session = mock.session(on)
+    await $.session.start({ cwd: '/repo', surface: 'terminal', isInteractive: true })
+    await $.session.append({
+      message: { type: 'user', role: 'user', content: [{ type: 'tool_result', tool_use_id: 't1', content: `POSTGRES_ADMIN_PASSWORD=${secret}` }] },
+      door: 'tool-result',
+      origin: { kind: 'tool', tool: 'Bash' },
+      uuid: 'row-env',
+    })
+    const stored = JSON.stringify(session.appended())
+    expect(stored.includes(secret)).toBe(false)
+    expect(stored.includes('[veil:POSTGRES_ADMIN_PASSWORD]')).toBe(true)
+  })
+
+  test('on Windows, prefers USERPROFILE over HOME and reads the gh token from %APPDATA%', async ($, on) => {
+    const ghToken = fakeHex(29, 40)
+    const stale = fakeHex(31, 40)
+    sourcesWorld(
+      on,
+      { HOME: '/h', USERPROFILE: '/Users/me', APPDATA: '/Users/me/AppData/Roaming', OS: 'Windows_NT' },
+      { '/Users/me/AppData/Roaming/GitHub CLI/hosts.yml': `github.com:\n    oauth_token: ${ghToken}\n`, '/h/.config/gh/hosts.yml': `github.com:\n    oauth_token: ${stale}\n` },
+      '/repo',
+    )
+    await $.session.start({ cwd: '/repo', surface: 'terminal', isInteractive: true })
+    const result = await $.command.run({ command: 'veil', args: '', origin: { kind: 'composer' }, presentation: { isFullscreen: false, columns: 80 } })
+    expect(result.text?.includes('~/AppData/Roaming/GitHub CLI/hosts.yml (gh): 1 value')).toBe(true)
+    expect(result.text?.includes('/h/')).toBe(false)
+  })
+})
+
+describe('veil platform detection in a Claude Code session', () => {
+  test('detects macOS from /System/Library even without ~/Library/Application Support', async ($, on) => {
+    const netlify = fakeHex(37, 40)
+    sourcesWorld(on, { HOME: '/home/me' }, { '/System/Library/CoreServices/x': '', '/home/me/Library/Preferences/netlify/config.json': JSON.stringify({ users: { u: { auth: { token: netlify } } } }) }, '/repo')
+    await $.session.start({ cwd: '/repo', surface: 'terminal', isInteractive: true })
+    const result = await $.command.run({ command: 'veil', args: '', origin: { kind: 'composer' }, presentation: { isFullscreen: false, columns: 80 } })
+    expect(result.text?.includes('~/Library/Preferences/netlify/config.json (netlify): 1 value')).toBe(true)
+  })
+
+  test('notes in the debug log when /proc/self/environ reads empty on Linux', async ($, on) => {
+    const logged: string[] = []
+    sourcesWorld(on, { HOME: '/home/me' }, {}, '/repo', logged)
+    await $.session.start({ cwd: '/repo', surface: 'terminal', isInteractive: true })
+    expect(logged.some(line => line.includes('could not read /proc/self/environ'))).toBe(true)
   })
 })

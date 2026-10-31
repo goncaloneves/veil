@@ -33,7 +33,8 @@
     "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.core.json",
     "check": "npm run typecheck && npm test && claude plugin validate .",
     "sync:gitleaks": "node scripts/sync-gitleaks.ts",
-    "assets": "node scripts/assets.ts"
+    "assets": "node scripts/assets.ts",
+    "build:adapters": "bun build src/adapters/pi/index.ts --target=node --format=esm --outfile dist/veil-pi.js && bun build src/adapters/opencode/index.ts --target=node --format=esm --outfile dist/veil-opencode.js"
   },
   "devDependencies": {
     "@types/node": "^24.19.2",
