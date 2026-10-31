@@ -1,0 +1,7 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": []
+  },
+  "include": ["src/core/**/*.ts", "src/config/**/*.ts", "src/sources/**/*.ts", "src/rules/**/*.ts", "src/engine.ts", "src/report.ts"]
+}

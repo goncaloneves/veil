@@ -1,0 +1,33 @@
+name: Bug report
+description: veil masked too much, too little, or broke something
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: "Never paste a real secret here. Describe its shape instead, such as \"a 40-character hex token in DATABASE_URL\"."
+  - type: input
+    id: version
+    attributes:
+      label: veil version
+      description: The first line of `/veil`, or `veil version`.
+    validations:
+      required: true
+  - type: input
+    id: agent
+    attributes:
+      label: Agent and version
+      description: For example Claude Code 2.1.316, terminal, macOS.
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what veil did, and what you expected.
+    validations:
+      required: true
+  - type: textarea
+    id: report
+    attributes:
+      label: Output of /veil or veil doctor
+      render: text

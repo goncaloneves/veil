@@ -1,0 +1,13 @@
+{
+  "name": "veil",
+  "owner": { "name": "Gonçalo Neves", "url": "https://github.com/goncaloneves" },
+  "description": "veil masks your secrets before your coding agent's model sees them.",
+  "plugins": [
+    {
+      "name": "veil",
+      "source": "./",
+      "description": "Masks your secrets before the model sees them: the real values from your secret files plus gitleaks patterns, restored only inside file edits.",
+      "category": "security"
+    }
+  ]
+}
