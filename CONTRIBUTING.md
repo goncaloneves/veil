@@ -14,7 +14,7 @@ claude plugin validate .
 claude plugin test .
 ```
 
-Try your working copy in a real session with `claude --plugin-dir .`.
+Try your working copy in a real session with `claude --plugin-dir .`. To try the Pi or opencode adapter, run `npm run build:adapters` (it needs [Bun](https://bun.sh)) and `veil init pi --from dist/veil-pi.js` or `veil init opencode --from dist/veil-opencode.js`. To try the proxy, run `node src/cli/main.ts proxy` from a project folder and point an agent at it.
 
 ## Conventions
 
@@ -45,4 +45,4 @@ release-please and the weekly rules sync open pull requests with the workflow's 
 
 ## Adding an agent
 
-An adapter turns the agent's events into calls on the core: load the secrets with `loadState`, build a `Masker` with `maskerSettings`, mask every text that reaches the model, and restore placeholders only in file edits. `src/adapters/claude-code` and `hooks/register.ts` are the reference. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+If the agent takes a custom API URL, it already works through `veil proxy`: add its setup to [docs/HARNESSES.md](docs/HARNESSES.md), and a route in `src/proxy/server.ts` if its upstream is new. If it has in-process plugins, wrap `Veil` from `src/session.ts`: mask every text it sends to its model and every record it saves, restore placeholders in file edits with `checkInput` from `src/restore.ts`, and deny when that refuses. `src/adapters/pi` and `src/adapters/opencode` are short references. Test the adapter in `test/`, then prove it in a real session against a fake model that records every request. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).

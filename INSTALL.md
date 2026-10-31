@@ -1,5 +1,7 @@
 # Installing veil
 
+veil runs as a native plugin in Claude Code, Pi, opencode and Kilo Code, and as `veil proxy` for every other agent. [docs/HARNESSES.md](docs/HARNESSES.md) has the setup for each agent.
+
 ## Claude Code
 
 veil is a Claude Code plugin. Its repository is also its marketplace, so one line installs it.
@@ -43,15 +45,35 @@ claude plugin uninstall veil@veil
 claude plugin marketplace remove veil
 ```
 
+## Pi, opencode and Kilo Code
+
+With the command-line tool below:
+
+```sh
+veil init pi         # ~/.pi/agent/extensions/veil.js
+veil init opencode   # ~/.config/opencode/plugins/veil.js
+veil init kilo       # ~/.config/kilo/plugin/veil.js
+```
+
+Each downloads the adapter built for your veil version and checks it against the release's `SHA256SUMS`. `--from <file>` installs a bundle you built yourself instead, without a checksum. `PI_CODING_AGENT_DIR` and `XDG_CONFIG_HOME` move the folders, as they do for the agents. Start a new session to load it. To uninstall, delete the file.
+
 ## Command-line tool
 
-The `veil` command masks files and streams, lists what veil reads and checks your setup. It is optional: the Claude Code plugin does not need it.
+The `veil` command masks files and streams, lists what veil reads, checks your setup, installs the agent plugins and runs `veil proxy`. The Claude Code plugin does not need it.
+
+On macOS and Linux:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/goncaloneves/veil/main/install.sh | sh
 ```
 
-The script downloads the build for your system from the latest release, checks it against the release's `SHA256SUMS` and installs it to `~/.local/bin/veil`. Set `VEIL_VERSION=v0.1.0` to pick a release and `VEIL_INSTALL_DIR` to install elsewhere. Builds exist for macOS and Linux, on arm64 and x64, with musl builds for Alpine and similar systems.
+On Windows, in PowerShell:
+
+```powershell
+irm https://raw.githubusercontent.com/goncaloneves/veil/main/install.ps1 | iex
+```
+
+The scripts download the build for your system from the latest release, check it against the release's `SHA256SUMS` and install it to `~/.local/bin/veil`, or `%LOCALAPPDATA%\Programs\veil\veil.exe` on Windows. Set `VEIL_VERSION=v0.2.0` to pick a release and `VEIL_INSTALL_DIR` to install elsewhere. Builds exist for macOS, Linux and Windows, on arm64 and x64, with musl builds for Alpine and similar systems. The x64 builds run on any x64 processor, including older servers without AVX2.
 
 Every release build carries a GitHub build attestation. To confirm a binary was built from this repository by its release workflow:
 
@@ -66,7 +88,7 @@ git clone https://github.com/goncaloneves/veil.git
 node veil/src/cli/main.ts doctor
 ```
 
-`veil init` installs the Claude Code plugin for you, running the two `claude plugin` commands above.
+`veil init` installs the Claude Code plugin for you, running the two `claude plugin` commands above; `veil init pi`, `opencode` or `kilo` installs the other plugins.
 
 ## Configuration
 
