@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict'
-import { spawnSync } from 'node:child_process'
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { spawn, spawnSync } from 'node:child_process'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { basename, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { after, describe, it } from 'node:test'
 import { fake, seeded } from './helpers.ts'
@@ -90,6 +90,32 @@ describe('veil cli', () => {
     assert.equal(veil(['proxy', '--bogus']).status, 2)
     assert.equal(veil(['scan', '--bogus'], '').status, 2)
     assert.equal(veil(['init', 'kilo', '--from=']).status, 2)
+  })
+
+  it('prints help for a command asked with --help, but still rejects an unknown one', () => {
+    const scan = veil(['scan', '--help'])
+    assert.equal(scan.status, 0)
+    assert.match(scan.stdout, /Usage:/)
+    assert.equal(veil(['bogus', '--help']).status, 2)
+  })
+
+  it('reads relative paths from the folder the proxy starts in, and loads secrets from --root', async () => {
+    const root = join(dir, 'proxy-root')
+    mkdirSync(root, { recursive: true })
+    const child = spawn(process.execPath, [cli, 'proxy', '--port', '0', '--root', root], { cwd: dir, env: env() })
+    const first = await new Promise<string>((resolve, reject) => {
+      let out = ''
+      child.stdout.on('data', chunk => {
+        out += chunk
+        if (out.includes('\n')) resolve(out.split('\n')[0] ?? '')
+      })
+      child.on('error', reject)
+      setTimeout(() => resolve(out), 10_000)
+    })
+    child.kill('SIGINT')
+    assert.match(first, /veil proxy on http:\/\/127\.0\.0\.1:\d+ for /)
+    assert.match(first, /for ~[\\/]proxy-root; start your agent in /)
+    assert.ok(first.endsWith(basename(dir)), first)
   })
 
   it('prints help and rejects unknown commands', () => {

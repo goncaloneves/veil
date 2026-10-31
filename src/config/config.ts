@@ -156,15 +156,15 @@ project = true          # .env files and other secret files in the project, up t
 project_depth = 3
 home = true             # credential files in your home folder: cloud CLIs, keys, registries, agents, shell history
 system = true           # /run/secrets, Kubernetes service accounts, k3s and server keys outside your home folder
-environment = true      # secret variables in the agent's environment (every variable on Linux)
-files = []              # more secret files: dotenv, JSON, YAML or a raw value, such as "~/.config/myapp/*.env"
+environment = true      # secret variables in the agent's environment (the Claude Code plugin reads every variable only on Linux)
+files = []              # more secret files: dotenv, JSON, YAML, INI or a raw value, such as "~/.config/myapp/*.env"
 
 [env]
 secret_keys = []        # more variable-name patterns to treat as secret, such as "*_DSN"
 ignore_keys = []        # variable-name patterns never treated as secret, such as "SENTRY_ENVIRONMENT"
 
 [rules]
-gitleaks = true         # gitleaks' pattern rules, for secrets veil has not seen in a file
+gitleaks = true         # gitleaks' pattern rules, for secrets veil has not seen in a file; veil's own rules always run
 disable = []            # rule ids to turn off, such as "generic-api-key"
 
 [mask]
@@ -172,5 +172,5 @@ min_length = 8          # shorter values are masked only as a whole token or aft
 encodings = ["base64", "url", "json", "lines"]
 
 [restore]
-mode = "holding"        # holding: only into files that already hold the value; always; never
+mode = "holding"        # holding: into the value's own file or a file that already holds it; always: any file; never: no file
 `

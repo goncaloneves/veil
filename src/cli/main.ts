@@ -23,10 +23,10 @@ const HELP = `veil ${pkg.version}: masks your secrets before your coding agent's
 
 Usage:
   veil scan [file ...]      print files (or stdin) with secrets masked
-  veil sources              list the secret files veil reads (names and counts, never values)
+  veil sources              list the secret files veil reads and the names of their values, never the values
   veil config [path|show|init]
                             print the config file's path, the settings in effect, or create one
-  veil doctor               check the setup: config, sources, rules, agent integrations
+  veil doctor               check the setup: config, sources, rules, and the Claude Code version and plugin
   veil proxy [--port 8345] [--root dir] [--route name=url ...]
                             mask what any agent sends to its model, through a local proxy
   veil init [claude|pi|opencode|kilo] [--dry-run] [--from file]
@@ -245,8 +245,8 @@ async function proxy(args: readonly string[]): Promise<number> {
     }
     routes[name] = target
   }
-  const base = values.root === undefined ? process.cwd() : resolve(values.root)
-  const root = values.root === undefined ? await projectRoot(base) : base
+  const base = process.cwd()
+  const root = values.root === undefined ? await projectRoot(base) : resolve(values.root)
   if (!(await stat(root).then(info => info.isDirectory(), () => false))) {
     console.error(`--root ${root} is not a folder`)
     return 2
@@ -279,8 +279,14 @@ async function proxy(args: readonly string[]): Promise<number> {
   return 0
 }
 
+const COMMANDS = new Set(['scan', 'sources', 'config', 'doctor', 'init', 'proxy', 'version'])
+
 async function main(argv: readonly string[]): Promise<number> {
   const [command, ...rest] = argv
+  if (command !== undefined && COMMANDS.has(command) && (rest.includes('--help') || rest.includes('-h'))) {
+    console.log(HELP)
+    return 0
+  }
   switch (command) {
     case 'scan':
       return scan(rest)
