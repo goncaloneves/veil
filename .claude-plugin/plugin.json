@@ -1,6 +1,6 @@
 {
   "name": "veil",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Masks your secrets before the model sees them: the real values from your secret files plus gitleaks patterns, restored only inside file edits.",
   "author": {
     "name": "Gonçalo Neves",
