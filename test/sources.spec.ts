@@ -11,14 +11,14 @@ import {
   parseNetrc,
   parseNpmrc,
   parsePgpass,
-  privateKeyBlocks,
 } from '../src/sources/credentials.ts'
+import { privateKeyBlocks } from '../src/sources/keys.ts'
 import { parseDotenv } from '../src/sources/dotenv.ts'
 import { envSecrets, isSecretKey, keyWords, urlPassword } from '../src/sources/env-policy.ts'
 import { isEnvFileName, loadSecrets } from '../src/sources/load.ts'
 import { fake, memoryFs, seeded } from './helpers.ts'
 
-const policy = { secretKeys: [], ignoreKeys: [], minLength: 8 }
+const policy = { secretKeys: [], ignoreKeys: [] }
 
 describe('parseDotenv', () => {
   it('reads plain, exported, quoted and commented values', () => {
@@ -33,7 +33,7 @@ EMPTY=
       { key: 'PLAIN', value: 'value one' },
       { key: 'EXPORTED', value: 'exported_value' },
       { key: 'DOUBLE', value: 'has "quotes" and \n newline' },
-      { key: 'SINGLE', value: 'keeps \\n as is' },
+      { key: 'SINGLE', value: 'keeps \\n as is', literal: true },
       { key: 'EMPTY', value: '' },
     ])
   })
@@ -73,12 +73,12 @@ describe('env policy', () => {
         'NODE_ENV=development',
         'APP_NAME=my-application',
         `NEXT_PUBLIC_KEY=${fake.hex(random, 32)}`,
-        `SOME_ID=${fake.password(random)}${fake.password(random)}`,
+        `SOME_VALUE=${fake.password(random)}${fake.password(random)}`,
         'SHORT_KEY=abc',
       ].join('\n'),
     )
     const names = envSecrets(entries, '.env', policy).map(secret => secret.name)
-    assert.deepEqual(names, ['API_TOKEN', 'DATABASE_URL', 'DATABASE_URL.password', 'SOME_ID'])
+    assert.deepEqual(names, ['API_TOKEN', 'DATABASE_URL', 'DATABASE_URL.password', 'SOME_VALUE'])
   })
 
   it('does not take ordinary settings for secrets', () => {
@@ -152,7 +152,7 @@ describe('env policy', () => {
 
   it('honours secret_keys and ignore_keys', () => {
     const entries = parseDotenv('SENTRY_DSN=https://abc@sentry.example/1\nSESSION_SECRET=supersecretvalue')
-    const names = envSecrets(entries, '.env', { secretKeys: ['*_DSN'], ignoreKeys: ['SESSION_*'], minLength: 8 }).map(s => s.name)
+    const names = envSecrets(entries, '.env', { secretKeys: ['*_DSN'], ignoreKeys: ['SESSION_*'] }).map(s => s.name)
     assert.deepEqual(names, ['SENTRY_DSN'])
   })
 })
@@ -163,8 +163,9 @@ describe('credential files', () => {
   it('reads AWS credentials per profile', () => {
     const secret = fake.hex(random, 40)
     const found = parseAwsCredentials(`[default]\naws_access_key_id = ${fake.awsKeyId(random)}\naws_secret_access_key = ${secret}\n[profile ci]\naws_session_token=${secret}x`, 'aws')
-    assert.deepEqual(found.map(s => s.name), ['aws/default/aws_access_key_id', 'aws/default/aws_secret_access_key', 'aws/ci/aws_session_token'])
-    assert.equal(found[1]?.value, secret)
+    assert.deepEqual(found.map(s => s.name), ['aws/default/aws_secret_access_key', 'aws/ci/aws_session_token'])
+    assert.equal(found[0]?.value, secret)
+    assert.ok(found.every(s => s.strong))
   })
 
   it('reads netrc, pgpass and git credentials', () => {
@@ -269,7 +270,7 @@ describe('loadSecrets', () => {
         ),
       kindOf: async (path: string) => (path.startsWith('/repo/.env') ? ('other' as const) : base.kindOf?.(path) ?? 'other'),
     }
-    const config = { ...DEFAULT_CONFIG, sources: { ...DEFAULT_CONFIG.sources, home: false, environment: false } }
+    const config = { ...DEFAULT_CONFIG, sources: { ...DEFAULT_CONFIG.sources, home: false, system: false, environment: false } }
     const loaded = await loadSecrets(fs, { home: '/home/me', root: '/repo', vars: {} }, config)
     assert.deepEqual(loaded.secrets, [])
     assert.equal(reads, 0)

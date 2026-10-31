@@ -15,6 +15,7 @@ describe('config', () => {
 project = false
 project_depth = 4
 home = false
+system = false
 environment = false
 files = ["~/.config/app/*.env"]
 [env]
@@ -31,7 +32,7 @@ mode = "never"
 `)
     assert.deepEqual(warnings, [])
     assert.deepEqual(config, {
-      sources: { project: false, projectDepth: 4, home: false, environment: false, files: ['~/.config/app/*.env'] },
+      sources: { project: false, projectDepth: 4, home: false, system: false, environment: false, files: ['~/.config/app/*.env'] },
       env: { secretKeys: ['*_DSN'], ignoreKeys: ['SENTRY_ENVIRONMENT'] },
       rules: { gitleaks: false, disable: ['generic-api-key'] },
       mask: { minLength: 12, encodings: ['json'] },

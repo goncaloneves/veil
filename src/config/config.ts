@@ -8,6 +8,7 @@ export type Config = {
     readonly project: boolean
     readonly projectDepth: number
     readonly home: boolean
+    readonly system: boolean
     readonly environment: boolean
     readonly files: readonly string[]
   }
@@ -31,7 +32,7 @@ export type Config = {
 export const ENCODINGS: readonly Encoding[] = ['base64', 'url', 'json', 'lines']
 
 export const DEFAULT_CONFIG: Config = {
-  sources: { project: true, projectDepth: 2, home: true, environment: true, files: [] },
+  sources: { project: true, projectDepth: 3, home: true, system: true, environment: true, files: [] },
   env: { secretKeys: [], ignoreKeys: [] },
   rules: { gitleaks: true, disable: [] },
   mask: { minLength: 8, encodings: ENCODINGS },
@@ -88,7 +89,7 @@ export function parseConfig(text: string): ParsedConfig {
     value === 'holding' || value === 'always' || value === 'never' ? value : undefined
 
   const known: Record<string, readonly string[]> = {
-    sources: ['project', 'project_depth', 'home', 'environment', 'files'],
+    sources: ['project', 'project_depth', 'home', 'system', 'environment', 'files'],
     env: ['secret_keys', 'ignore_keys'],
     rules: ['gitleaks', 'disable'],
     mask: ['min_length', 'encodings'],
@@ -109,6 +110,7 @@ export function parseConfig(text: string): ParsedConfig {
       project: read('sources', 'project', d.sources.project, bool),
       projectDepth: read('sources', 'project_depth', d.sources.projectDepth, count(0, 6)),
       home: read('sources', 'home', d.sources.home, bool),
+      system: read('sources', 'system', d.sources.system, bool),
       environment: read('sources', 'environment', d.sources.environment, bool),
       files: read('sources', 'files', d.sources.files, strings),
     },
@@ -136,9 +138,10 @@ export function weakenings(config: Config): string[] {
   if (config.rules.disable.length > 0) out.push(`rules turned off: ${config.rules.disable.join(', ')}`)
   if (!config.sources.project) out.push("the project's .env files are not read")
   if (!config.sources.home) out.push('the credentials in your home folder are not read')
+  if (!config.sources.system) out.push('secret files outside your home folder, such as /run/secrets, are not read')
   if (!config.sources.environment) out.push('API keys in the environment are not read')
   if (config.sources.projectDepth < d.sources.projectDepth) out.push(`.env files are read only ${config.sources.projectDepth} folders deep`)
-  if (config.mask.minLength > d.mask.minLength) out.push(`values shorter than ${config.mask.minLength} characters are not masked`)
+  if (config.mask.minLength > d.mask.minLength) out.push(`values shorter than ${config.mask.minLength} characters are masked only as whole tokens or where they are assigned`)
   const missing = d.mask.encodings.filter(encoding => !config.mask.encodings.includes(encoding))
   if (missing.length > 0) out.push(`encoded forms not matched: ${missing.join(', ')}`)
   if (config.env.ignoreKeys.length > 0) out.push(`variables never treated as secret: ${config.env.ignoreKeys.join(', ')}`)
@@ -149,11 +152,12 @@ export function weakenings(config: Config): string[] {
 export const STARTER_CONFIG = `# veil configuration. Every key is optional; the values shown are the defaults.
 
 [sources]
-project = true          # .env files in the project, up to project_depth folders down
-project_depth = 2
-home = true             # ~/.aws, ~/.ssh keys, gh, docker, npm, netrc, pgpass, git and kube credentials
-environment = true      # well-known API key variables in the agent's environment
-files = []              # more dotenv-style files, such as "~/.config/myapp/*.env"
+project = true          # .env files and other secret files in the project, up to project_depth folders down
+project_depth = 3
+home = true             # credential files in your home folder: cloud CLIs, keys, registries, agents, shell history
+system = true           # /run/secrets, Kubernetes service accounts, k3s and server keys outside your home folder
+environment = true      # secret variables in the agent's environment (every variable on Linux)
+files = []              # more secret files: dotenv, JSON, YAML or a raw value, such as "~/.config/myapp/*.env"
 
 [env]
 secret_keys = []        # more variable-name patterns to treat as secret, such as "*_DSN"
@@ -164,7 +168,7 @@ gitleaks = true         # gitleaks' pattern rules, for secrets veil has not seen
 disable = []            # rule ids to turn off, such as "generic-api-key"
 
 [mask]
-min_length = 8          # shorter values are never masked
+min_length = 8          # shorter values are masked only as a whole token or after a key that names them
 encodings = ["base64", "url", "json", "lines"]
 
 [restore]
