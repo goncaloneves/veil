@@ -2,6 +2,7 @@ export type Secret = {
   readonly name: string
   readonly value: string
   readonly source: string
+  readonly strong?: boolean
 }
 
 export type AllowTarget = 'secret' | 'match' | 'line'
