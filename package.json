@@ -1,6 +1,6 @@
 {
   "name": "veil",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Masks your secrets before your coding agent's model sees them.",
   "license": "MIT",
   "author": "Gonçalo Neves (https://github.com/goncaloneves)",

@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.2.1](https://github.com/goncaloneves/veil/compare/v0.2.0...v0.2.1) (2026-10-31)
+
+
+### Bug Fixes
+
+* **cli:** help for each command, proxy paths read from the folder it starts in, and accurate help and starter config text ([0b7f707](https://github.com/goncaloneves/veil/commit/0b7f707456500d567e7d8272586f051ba85658ee))
+
+
+### Documentation
+
+* install, update and check veil for every agent, and match every claim to the code ([054f02f](https://github.com/goncaloneves/veil/commit/054f02fcdf0cc2e9b5db744d1392f608ee58f5a8))
+
 ## [0.2.0](https://github.com/goncaloneves/veil/compare/v0.1.0...v0.2.0) (2026-10-31)
 
 
