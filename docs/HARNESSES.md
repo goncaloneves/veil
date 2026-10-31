@@ -11,7 +11,7 @@ veil works with any model and almost any coding agent. How it plugs in depends o
 | **Codex**, **Copilot CLI**, **Grok Build**, **Gemini CLI**, **Crush**, **Goose**, **Aider**, **Cline**, **Continue**, **Zed**, **grok-cli**, any tool that takes a custom API URL | `veil proxy` | Everything the model sees; the agent's own session files may still hold tool output |
 | **Cursor**, **Warp** | Not supported | Their model traffic goes through their own servers, so nothing local can mask it |
 
-Claude Code, Pi, opencode, and Codex through the proxy are tested end to end in real sessions. Kilo Code's CLI loads plugins from the same folder layout as opencode; its VS Code and JetBrains extensions are not confirmed. The other proxy settings below come from each tool's own documentation; if a release changes them, please open an issue.
+Claude Code, Pi, opencode, and Codex through the proxy are tested end to end in real sessions. opencode loads plugins from both `plugin/` and `plugins/` in its config folder; Kilo Code's CLI loads them from `~/.config/kilo/plugin/`, and its VS Code and JetBrains extensions are not confirmed. The other proxy settings below come from each tool's own documentation; if a release changes them, please open an issue.
 
 ## Native plugins
 
@@ -22,7 +22,7 @@ veil init opencode   # opencode: ~/.config/opencode/plugins/veil.js
 veil init kilo       # Kilo Code: ~/.config/kilo/plugin/veil.js
 ```
 
-Each `init` downloads the adapter built for your veil version from the GitHub release and checks it against the release's `SHA256SUMS`. Without the CLI, download `veil-pi.js` or `veil-opencode.js` from the [latest release](https://github.com/goncaloneves/veil/releases/latest) into the folder shown.
+Each `init` for Pi, opencode or Kilo downloads the adapter built for your veil version from the GitHub release and checks it against the release's `SHA256SUMS`. Without the CLI, download `veil-pi.js` or `veil-opencode.js` from the [latest release](https://github.com/goncaloneves/veil/releases/latest) into the folder shown.
 
 The native plugins refuse an edit that would write a secret anywhere other than its own file or a file that already holds it, exactly like the Claude Code plugin. They write real values only through the agent's own file tools; a third-party or MCP tool call that names a file and holds a placeholder is refused, since it would write the placeholder over real content.
 
@@ -30,7 +30,7 @@ The native plugins refuse an edit that would write a secret anywhere other than 
 
 ## veil proxy
 
-`veil proxy` is a small server on `127.0.0.1` that sits between your agent and its model API. Start it in the folder you start your agent in: it loads the secret files of the project around it (the git root above it, or `--root`), and it reads relative file paths in tool calls from that folder, as the agent does. Run one proxy per project on its own `--port`:
+`veil proxy` is a small server on `127.0.0.1` that sits between your agent and its model API. Start it in the folder you start your agent in: it loads the secret files of the project around it (the git root above it, or the folder you give `--root`), and it always reads relative file paths in tool calls from the folder it was started in, as the agent does. Run one proxy per project on its own `--port`:
 
 ```sh
 cd ~/code/my-app

@@ -20,7 +20,7 @@ veil keeps secret values out of what a coding agent sends to its model and store
 - It refuses an @-mention of a file that holds a secret, because Claude Code stores a mentioned file as read.
 - The plugins never write a placeholder over real content: an edit holding a placeholder they cannot restore is refused unless the file already holds that exact text. `veil proxy` cannot refuse a tool call, so there the placeholder is written as is.
 - It reads only regular files and links to them, never named pipes, sockets or devices.
-- A config file can only weaken protection from your own machine: `VEIL_CONFIG` must be an absolute path outside the project, and every weakened setting is named in a warning at the start of each session.
+- A config file can only weaken protection from your own machine: `VEIL_CONFIG` must be an absolute path outside the project, and every weakened setting is named in a warning when a Claude Code or Pi session or `veil proxy` starts, and by `veil config show`.
 
 ## What it does not protect against
 

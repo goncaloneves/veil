@@ -8,6 +8,7 @@
 * **core:** mask known values in every listed encoding and catch more secret formats ([d888f76](https://github.com/goncaloneves/veil/commit/d888f7681c028c1f2f75cfbd589b01a2b39fc018))
 * **sources:** load secrets from their usual places on macOS, Linux, servers and Windows ([a265eed](https://github.com/goncaloneves/veil/commit/a265eed95099ebec30ee1131736aa6249af69e97))
 * veil works with any agent through native plugins for Pi and opencode and a local proxy ([cc6a8e4](https://github.com/goncaloneves/veil/commit/cc6a8e48d60a6c26ea4971f86e0cac9537fb7602))
+* **build:** Windows and baseline x64 binaries, adapter bundles in each release, and safer installers ([9db1352](https://github.com/goncaloneves/veil/commit/9db1352))
 
 
 ### Documentation
@@ -22,5 +23,3 @@
 ### Features
 
 * veil, masks your secrets before your coding agent's model sees them ([f94ccd6](https://github.com/goncaloneves/veil/commit/f94ccd679d85cf59ec4ca878e3c264870e72f5ff))
-
-## Changelog

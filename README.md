@@ -42,7 +42,7 @@ DATABASE_URL=[veil:DATABASE_URL]
 - 🔑 **It knows your real values, not just key formats.** veil reads the secrets you already keep and masks those exact values wherever they show up: shell output, logs, `docker inspect`, error messages, even base64-encoded or JSON-escaped. Pattern-only scanners miss a plain password, a custom token or one line of a private key.
 - 🧭 **It also catches secrets it has never seen.** The [gitleaks](https://github.com/gitleaks/gitleaks) rule set, kept current every week, plus veil's own rules for what gitleaks misses: agent OAuth tokens, passwords in config files and connection strings, auth headers, passwords on command lines and private keys cut off mid-output.
 - 🛡️ **It covers the paths to the model.** Prompts, tool results and errors, the model's own text, the system prompt and `CLAUDE.md` or `AGENTS.md`, attachments, skills, slash-command arguments and messages between sessions. In Claude Code and Pi it also masks the records the screen and the session file keep.
-- 🤝 **Any agent, any model.** Native plugins for Claude Code, Pi, opencode and Kilo Code, and `veil proxy` for Codex, Copilot CLI, Grok Build, Gemini CLI, Aider, Cline, Goose, Continue, Zed and anything else that takes a custom API URL.
+- 🤝 **Any agent, any model.** Native plugins for Claude Code, Pi, opencode and Kilo Code, and `veil proxy` for Codex, Copilot CLI, Grok Build, Gemini CLI, Crush, Goose, Aider, Cline, Continue, Zed, grok-cli and anything else that takes a custom API URL.
 - ✍️ **Your agent still works with your secrets.** Placeholders keep their names, and when the agent edits the file a secret came from, veil writes the real value back into that edit, and nowhere else.
 - 🏠 **Nothing leaves your machine.** The plugins make no network calls and call no model; the Pi plugin runs your own `!` commands through Pi's shell runner so it can mask their output. `veil proxy` forwards only your agent's own requests, to the API you point it at. Real values live in memory, and veil never writes or logs them.
 - 📦 **Zero runtime dependencies.** A tool that sees your secrets should not pull in code you have not read. Nothing from npm is installed or loaded when veil runs: the plugin is veil's own small TypeScript, and `claude plugin validate .` lists every call it makes and every variable it reads.
@@ -68,7 +68,7 @@ veil makes one promise and one best effort. Everything else is out of scope, and
 
 | | What | How |
 | --- | --- | --- |
-| **Promise** | every value veil loads from your secret files and environment ([What it reads](#what-it-reads)) | masked exactly, wherever it appears in text the model reads: as written, base64 (anywhere inside a blob, or wrapped), URL-encoded, JSON-escaped, shell- or PowerShell-quoted, UTF-16, and line by line for multi-line values such as keys. Values of 8 characters or more are masked everywhere, except a password that is a one-case word of up to 8 letters, such as `postgres`, which is masked where it is assigned and in base64; a random-looking 6 or 7 is masked as a whole word, and a shorter password from a secret name only where it is assigned |
+| **Promise** | every value veil loads from your secret files and environment ([What it reads](#what-it-reads)) | masked exactly, wherever it appears in text the model reads: as written, base64 (anywhere inside a blob, or wrapped), URL-encoded, JSON-escaped, shell- or PowerShell-quoted, UTF-16, and line by line for multi-line values such as keys. Values of 8 characters or more are masked everywhere, except a password that is a one-case word of up to 8 letters, such as `postgres`, which is masked where it is assigned (and in base64 at 8 letters); a random-looking 6 or 7 is masked as a whole word, and a shorter password from a secret name only where it is assigned |
 | **Best effort** | secrets veil has not loaded but whose format it knows | the [gitleaks](https://github.com/gitleaks/gitleaks) rule set and veil's own rules: agent and cloud tokens, passwords in config files, connection strings and URLs, auth headers, passwords on command lines, private keys. A format no rule knows slips through |
 
 veil does not mask:
@@ -77,7 +77,7 @@ veil does not mask:
 - a loaded value transformed any other way: reversed, hex-encoded, split, encrypted, escaped more than once, or wrapped in terminal colour codes inside JSON;
 - the visible part of a value shown cut off, such as `sk-abc123…` or a truncated table column;
 - images, audio, video and PDFs;
-- what an agent stores outside veil's reach: opencode's database and `tool-output` folder, the session files of agents behind `veil proxy`, Pi's streamed `bash` output;
+- what an agent stores outside veil's reach: opencode's database and `tool-output` folder, the session files of agents behind `veil proxy`, Pi's streamed `bash` output and its full-output log;
 - anything a model does on purpose to recover a value, such as probing what veil masks or using the secret through a program it runs;
 - traffic that never passes through your machine (Cursor, Warp).
 
@@ -130,7 +130,7 @@ veil reads the secrets you already keep, on macOS, Linux, servers, containers an
 
 In an env file or the environment, a strong name, one with a password word in its last part (`PASSWORD`, `PASSWD`, `PASS`, `PWD`, `PW`, `PASSPHRASE`, `PASSCODE`, `SECRET`, `CREDENTIAL`, `CREDS`, `APIKEY`, `PRIVKEY`, `PASSKEY`, `PIN`, `OTP`, `PSK`, `DSN`; a trailing `_PROD`, `_DEV`, `_V2` or similar is ignored), is masked whatever its value, except `true`, `false` and the like. A weak name, one with `KEY` or `TOKEN` in it, or ending in `AUTH`, `SESSION`, `COOKIE`, `SALT` or `JWT`, is masked unless its value is a number, a path, a URL with no credentials, or plain lowercase words such as `us-east-1`; when `KEY` or `TOKEN` is not the last word, the value must also look random. A name that ends in `TYPE`, `PATH`, `HOST`, `PORT`, `URL`, `HEADER` or a similar descriptor, or that names another variable (`TOKEN_ENV`, `env_key`), is not a secret, and a name ending in `ID` or `HASH` counts only when it also holds a password word. Names are read in many shapes (`API_TOKEN_V2`, `TOKEN_GITHUB`, `GITHUB_TOKEN_RO`, `PASS_PHRASE`), and secrets inside a value are found too: JSON keys, connection-string parts such as `Password=` and `AccountKey=`, URL credentials and header lists. Public values are left alone: `NEXT_PUBLIC_*`, publishable and anon keys, site keys, OAuth client ids, a Sentry DSN and `.env.example`. So are references to other values (`$VAR`, `${VAR}`, `$(…)`, `%VAR%`, `{env:…}`, `op://…`) and placeholders such as `YOUR_API_KEY_HERE`, `<your-key>` or `CHANGE_ME`.
 
-Values of 8 characters or more are masked everywhere, except a password that is a one-case word of up to 8 letters, such as `postgres` or `password`: it is masked where it is assigned and in base64, so `image: postgres:16` stays readable. A shorter value is masked everywhere as a whole word when it looks random (6 or 7 characters), and a short password from a secret name or a credential file, from 4 characters, is masked where it is assigned, such as `PGPASSWORD=…`, `--password …` or a URL, but not when the same letters appear in prose. Name a weak variable whose value is plain words, such as `JWT_KEY=mysecretkey`, in `[env] secret_keys` to mask it.
+Values of 8 characters or more are masked everywhere, except a password that is a one-case word of up to 8 letters, such as `postgres` or `password`: it is masked where it is assigned, and in base64 when it is 8 letters long, so `image: postgres:16` stays readable. A shorter value is masked everywhere as a whole word when it looks random (6 or 7 characters), and a short password from a secret name or a credential file, from 4 characters, is masked where it is assigned, such as `PGPASSWORD=…`, `--password …` or a URL, but not when the same letters appear in prose. Name a weak variable whose value is plain words, such as `JWT_KEY=mysecretkey`, in `[env] secret_keys` to mask it.
 
 Each value is also matched in its encoded forms: base64 (anywhere inside a larger blob, or wrapped at 76 columns), UTF-16 as Windows tools write it, URL encoding, JSON escapes, shell and PowerShell quoting, and a multi-line value such as a private key line by line, whatever its line endings. Symlinked files are followed; named pipes, such as a 1Password-mounted `.env`, and anything under `/proc`, `/sys` or `/dev` are never opened. veil warns when a project or configured file cannot be read, and lists home files it cannot read in `/veil`; root-only system files are skipped quietly. When a session starts in your home folder, veil does not walk Documents, Desktop or cloud-drive folders, so macOS never asks for access to them. After a secret file changes, veil re-reads only the files that changed.
 
@@ -145,6 +145,8 @@ Each value is also matched in its encoded forms: base64 (anywhere inside a large
 | the system prompt, `CLAUDE.md` and memory files | masked in each section and context block |
 | a reminder the agent attaches | masked as it is attached |
 | a file you @-mention | refused when it holds a secret, since Claude Code stores a mention as read; Claude reads it with its Read tool instead, which veil masks |
+| a secret file that changes during the session | read again when Claude reads it, and otherwise at most every 15 seconds, so a new value is masked from then on |
+| an MCP tool call that names a file and holds a placeholder | refused, since veil writes real values only through Claude Code's own Edit, Write and NotebookEdit tools |
 | a skill's body, a slash command's arguments | masked before they run |
 | a message to or from another session or subagent | masked in both directions |
 
@@ -160,7 +162,7 @@ veil never writes a placeholder where it would replace real content. A placehold
 
 ## Configure
 
-Every setting is optional. `veil config init` writes a starter file, or create one yourself at `~/.config/veil/config.toml` (on macOS, `~/Library/Application Support/veil/config.toml` works too). `VEIL_CONFIG` names any other absolute path outside your projects:
+Every setting is optional. `veil config init` writes a starter file, or create one yourself at `~/.config/veil/config.toml` (`%USERPROFILE%\.config\veil\config.toml` on Windows, under `XDG_CONFIG_HOME` when it is set; on macOS, `~/Library/Application Support/veil/config.toml` works too). `VEIL_CONFIG` names any other absolute path outside your projects:
 
 ```toml
 [sources]
@@ -176,7 +178,7 @@ secret_keys = ["*_DSN"]               # more variable names to treat as secret
 ignore_keys = ["SENTRY_ENVIRONMENT"]  # variable names never treated as secret
 
 [rules]
-gitleaks = true
+gitleaks = true         # gitleaks' rules; veil's own rules always run
 disable = []            # rule ids to turn off, such as "generic-api-key"
 
 [mask]
@@ -184,14 +186,14 @@ min_length = 8
 encodings = ["base64", "url", "json", "lines"]
 
 [restore]
-mode = "holding"        # holding, always or never
+mode = "holding"        # holding: the value's own file or a file that holds it; always; never
 ```
 
-An invalid value falls back to its default with a warning, so a typo never turns masking off. Any setting that weakens protection is named in a warning at the start of every session and in `/veil`. Run `/veil reload` after editing the file.
+An invalid value falls back to its default with a warning, so a typo never turns masking off. Any setting that weakens protection is named in a warning when veil starts in Claude Code, Pi and `veil proxy`, in `/veil`, and by `veil config show`; the opencode and Kilo plugins do not show it. After editing the file, run `/veil reload` in Claude Code; elsewhere start a new session or restart `veil proxy`.
 
 ## Commands
 
-In a session:
+In a Claude Code session:
 
 | Command | What it does |
 | --- | --- |
@@ -203,7 +205,7 @@ From a shell, after installing the [command-line tool](INSTALL.md#command-line-t
 | Command | What it does |
 | --- | --- |
 | `veil scan [file …]` | print files, or stdin, with secrets masked; exits 1 when it masked something |
-| `veil sources` | list the secret files veil reads, with names and counts, never values |
+| `veil sources` | list the secret files veil reads and the names of the values in each, never the values |
 | `veil config [path\|show\|init]` | where the config is, the settings in effect, or a starter file |
 | `veil doctor` | check the config, the sources, the rules, the Claude Code version and the plugin |
 | `veil init [claude\|pi\|opencode\|kilo]` | install veil into an agent; Claude Code when none is named |
@@ -235,7 +237,7 @@ Beyond [What veil masks](#what-veil-masks):
 
 | Agent | How | Tested |
 | --- | --- | --- |
-| Claude Code 2.1.287 or later (terminal, VS Code and Cursor extension, desktop app) | native plugin | 2.1.308 and 2.1.316, in real sessions |
+| Claude Code 2.1.287 or later, 2.1.299 in the VS Code and Cursor extension (terminal, extension, desktop app) | native plugin | 2.1.308 and 2.1.316, in real sessions |
 | Pi | native extension | 1.4.0, in real sessions |
 | opencode | native plugin | 1.19.5, in real sessions |
 | Kilo Code | native plugin, the opencode format | loads the same plugin as opencode |

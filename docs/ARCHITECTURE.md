@@ -40,7 +40,7 @@ The core uses no Node, browser or agent API, so it runs in any JavaScript runtim
 
 ## Sources and config (`src/sources`, `src/config`)
 
-Parsers turn file contents into `Secret`s, each marked `strong` when its source proves it is a secret. `loadSecrets` walks the project and the home folder through a `SourceFs` the caller supplies, so it never touches a file system itself. The config is TOML, parsed by a small parser in `toml.ts`; an invalid value warns and keeps its default.
+Parsers turn file contents into `Secret`s, each marked `strong` when its source proves it is a secret; a value found in several files keeps all of them. `loadSecrets` walks the project and the home folder through a `SourceFs` the caller supplies, so it never touches a file system itself. It never opens kernel files or named pipes, and skips anything over 8 MiB except a shell history, whose last 8 MiB it reads in the CLI and the Node plugins. It skips references (`${VAR}`, `{env:…}`) and placeholders as values, and on a refresh re-reads only files whose size, time or inode changed, re-walking the project every few minutes. The config is TOML, parsed by a small parser in `toml.ts`; an invalid value warns and keeps its default.
 
 ## Engine (`src/engine.ts`)
 
