@@ -4,6 +4,7 @@ export type Secret = {
   readonly source: string
   readonly strong?: boolean
   readonly sources?: readonly string[]
+  readonly projectName?: boolean
 }
 
 export type AllowTarget = 'secret' | 'match' | 'line'

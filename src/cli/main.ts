@@ -73,9 +73,13 @@ function masker(current: VeilState, options: { known: boolean; rules: boolean })
   })
 }
 
+async function cliHost(): Promise<VeilHost> {
+  return nodeHost(await projectRoot(process.cwd()))
+}
+
 async function scan(args: readonly string[]): Promise<number> {
   const { values, positionals: files } = parseArgs({ args: [...args], options: { json: { type: 'boolean' }, 'no-known': { type: 'boolean' }, 'no-rules': { type: 'boolean' } }, allowPositionals: true, strict: true })
-  const host = nodeHost()
+  const host = await cliHost()
   const current = await state(host)
   const instance = masker(current, { known: values['no-known'] !== true, rules: values['no-rules'] !== true })
   const inputs = files.length > 0 ? await Promise.all(files.map(async file => ({ file, text: await readInput(file) }))) : [{ file: '-', text: await readStdin() }]
@@ -93,7 +97,7 @@ async function scan(args: readonly string[]): Promise<number> {
 }
 
 async function sources(): Promise<number> {
-  const host = nodeHost()
+  const host = await cliHost()
   const current = await state(host)
   if (current.loaded.files.length === 0) console.log('No secret files found.')
   for (const file of current.loaded.files) {
@@ -106,7 +110,7 @@ async function sources(): Promise<number> {
 }
 
 async function config(action: string | undefined): Promise<number> {
-  const host = nodeHost()
+  const host = await cliHost()
   const { paths, notes } = await configCandidates(nodeFs, host)
   const target = paths[0] ?? `${host.home}/.config/veil/config.toml`
   if (action === 'path' || action === undefined) {
@@ -143,7 +147,7 @@ function locate(command: string): string {
 }
 
 async function doctor(): Promise<number> {
-  const host = nodeHost()
+  const host = await cliHost()
   const current = await state(host)
   const instance = masker(current, { known: true, rules: true })
   console.log(report(instance, current, { version: pkg.version, home: host.home }).split('\n').filter(line => !line.startsWith('masked this session')).join('\n'))

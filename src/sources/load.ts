@@ -165,7 +165,7 @@ async function settle<T>(items: readonly T[], limit: number, run: (item: T, inde
 function detect(text: string, policy: EnvPolicy): { readonly kind: string; readonly parse: Parser } {
   const trimmed = text.trim()
   if (/^[{[]/.test(trimmed)) return { kind: 'json', parse: treeParser('file', {}, 'json') }
-  if (parseDotenv(text).some(entry => entry.value.replace(/=+$/, '') !== '')) return { kind: 'dotenv', parse: dotenvParser(policy) }
+  if (parseDotenv(text).some(entry => /[^=]/.test(entry.value))) return { kind: 'dotenv', parse: dotenvParser(policy) }
   if (!/\n/.test(trimmed)) return { kind: 'raw', parse: (value, source) => rawSecret(basename(source))(value, source) }
   return { kind: 'config', parse: treeParser('file', {}, 'keyed') }
 }
@@ -193,6 +193,7 @@ export async function loadSecrets(fs: SourceFs, host: SourceHost, config: Config
   const warnings: string[] = []
   const candidates: Candidate[] = []
   const configuredPatterns = new Map<string, number>()
+  const repoNames: string[] = []
   const fail = (path: string, error: unknown, quiet: boolean) => errors.push({ path, message: errorMessage(error), ...(quiet ? { quiet: true } : {}) })
   const add = (source: FileSource, scope: Scope, pattern?: string) => candidates.push({ ...source, scope, ...(pattern === undefined ? {} : { pattern }) })
 
@@ -267,13 +268,17 @@ export async function loadSecrets(fs: SourceFs, host: SourceHost, config: Config
     for (const root of roots) {
       for (const source of projectRootFiles(root, policy)) add(source, 'project')
       if (isFile(await inspect(joinPath(root, 'composer.json')))) add({ path: joinPath(root, 'auth.json'), kind: 'composer', parse: composerAuth }, 'project')
-      const gitdir = (await readSmall(joinPath(root, '.git'))).match(/^gitdir:\s*(.+?)\s*$/m)?.[1]
+      const gitdir = (await readSmall(joinPath(root, '.git'))).split(/\r?\n/).find(line => line.startsWith('gitdir:'))?.slice(7).trim() || undefined
+      let gitConfig = joinPath(joinPath(root, '.git'), 'config')
       if (gitdir) {
         const resolved = isAbsolutePath(gitdir) ? gitdir : joinPath(root, gitdir)
         const common = (await readSmall(joinPath(resolved, 'commondir'))).trim()
         const base = common ? (isAbsolutePath(common) ? common : joinPath(resolved, common)) : resolved
-        add({ path: joinPath(base, 'config'), kind: 'gitconfig', parse: parseGitConfig }, 'project')
+        gitConfig = joinPath(base, 'config')
+        add({ path: gitConfig, kind: 'gitconfig', parse: parseGitConfig }, 'project')
       }
+      const origin = root === host.root ? originName(await readSmall(gitConfig)) : undefined
+      if (origin) repoNames.push(origin)
     }
   }
 
@@ -439,5 +444,28 @@ export async function loadSecrets(fs: SourceFs, host: SourceHost, config: Config
     const sources = [...new Set([...(seen.sources ?? [seen.source]), secret.source])]
     unique.set(secret.value, { ...seen, strong: seen.strong || secret.strong === true, ...(sources.length > 1 ? { sources } : {}) })
   }
-  return { secrets: [...unique.values()], files, errors, warnings, skipped, cache, ...(walk ? { walk } : {}) }
+  const names = projectNames(host, platform, repoNames)
+  const marked = [...unique.values()].map(secret => (names.has(secret.value.toLowerCase()) ? { ...secret, projectName: true } : secret))
+  return { secrets: marked, files, errors, warnings, skipped, cache, ...(walk ? { walk } : {}) }
+}
+
+function projectNames(host: SourceHost, platform: string, repoNames: readonly string[]): Set<string> {
+  const root = host.root
+  if (!root || isFilesystemRoot(root) || (host.home && pathKey(root, platform) === pathKey(host.home, platform))) return new Set()
+  const names = [basename(root), ...repoNames].map(name => name.toLowerCase())
+  return new Set(names.flatMap(name => [name, ...name.split(/[-_.\s]+/)]).filter(part => part !== ''))
+}
+
+function originName(config: string): string | undefined {
+  let origin = false
+  for (const line of config.split(/\r?\n/)) {
+    const section = line.match(/^\s*\[([^\]]*)\]/)
+    if (section) origin = /^remote\s+"origin"$/.test((section[1] ?? '').trim())
+    else if (origin) {
+      const url = line.match(/^\s*url\s*=\s*(\S+)/)?.[1]
+      const name = url?.split(/[/:]/).filter(part => part !== '').pop()
+      if (name) return name.endsWith('.git') ? name.slice(0, -4) : name
+    }
+  }
+  return undefined
 }

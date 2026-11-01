@@ -25,6 +25,7 @@ const SEP = '(?:\\s|\\\\040)'
 const SPACE = '[ \\t]{0,20}'
 const GAP = '[ \\t]{1,20}'
 const ASSIGN = '(?:=>|:=|=(?![=~>])|:(?!:))'
+const VALUE_ASSIGN = `(?:(?<=["'\\]]${SPACE})=>|=>(?=${SPACE}["'\`])|:=|=(?![=~>])|:(?!:))`
 const LINE_END = '(?=\\s|$|[;|&)])'
 const COMMAND_RUN = '[^\\n|;&]{0,300}?'
 
@@ -181,7 +182,7 @@ export const VEIL_RULES: readonly Rule[] = [
   rule('google-oauth-refresh-token', '(?<![\\w/])1\\/\\/0[\\w-]{40,512}', ['1//0'], { secretGroup: 0, entropy: 3.5, allowlists: [] }),
   rule('google-oauth-client-secret', '\\bGOCSPX-[A-Za-z0-9_-]{28}(?![\\w-])', ['gocspx-'], { secretGroup: 0, entropy: 3, allowlists: [] }),
   rule('supabase-token', '\\b(?:sbp_[a-f0-9]{40}|sb_secret_[A-Za-z0-9_-]{20,200})\\b', ['sbp_', 'sb_secret_'], { secretGroup: 0, entropy: 3, allowlists: [] }),
-  rule('password-assignment', `(?<![\\w.;?&-])${STRONG_KEY}["']?\\]?\\??${SPACE}${ASSIGN}${SPACE}${quotedOrBare(6, 8)}`, PASSWORD_KEYWORDS, {
+  rule('password-assignment', `(?<![\\w.;?&-])${STRONG_KEY}["']?\\]?\\??${SPACE}${VALUE_ASSIGN}${SPACE}${quotedOrBare(6, 8)}`, PASSWORD_KEYWORDS, {
     entropy: 2,
     allowlists: FREE_TEXT,
   }),

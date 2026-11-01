@@ -23,7 +23,7 @@ import {
 } from '../src/sources/credentials.ts'
 import { gpgKeyParts, jwkSecrets, keyFileSecrets, privateKeyBlocks, puttyKeys } from '../src/sources/keys.ts'
 import { parseDotenv } from '../src/sources/dotenv.ts'
-import { envSecrets } from '../src/sources/env-policy.ts'
+import { envSecrets, looksRandom } from '../src/sources/env-policy.ts'
 import { envEntrySecrets, keyedLeaves } from '../src/sources/tree.ts'
 import { PRINTABLE, fake, fakeToken, seeded } from './helpers.ts'
 
@@ -253,6 +253,16 @@ describe('references and placeholders', () => {
 })
 
 describe('values inside variables', () => {
+  it('never takes an image or a tag for a secret because it looks random, as a compose environment would', () => {
+    const image = `ghcr.io/${fakeToken(seeded(97), 14).toLowerCase()}/sandbox-computer:${fakeToken(seeded(98), 10)}`
+    const tag = fakeToken(seeded(99), 32)
+    assert.ok(looksRandom(image) && looksRandom(tag))
+    const neutral = envEntrySecrets([{ key: 'SANDBOX_COMPUTER', value: image }], 'compose')
+    assert.deepEqual(values(neutral), [image])
+    const named = envEntrySecrets([{ key: 'SANDBOX_COMPUTER_IMAGE', value: image }, { key: 'RELEASE_TAG', value: tag }, { key: 'IMAGE_PULL_SECRET', value: tag }], 'compose')
+    assert.deepEqual(values(named), [tag])
+  })
+
   it('reads JSON keys, connection strings and JDBC URLs inside secret-named variables', () => {
     const [accountKey, password, jdbc, query] = [`${token(64)}==`, token(16), token(16), token(16)]
     const key = fake.privateKey(random)

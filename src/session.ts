@@ -113,7 +113,7 @@ function assign(out: Record<string, unknown>, key: string, value: unknown): void
 }
 
 function secretsKey(secrets: readonly Secret[]): string {
-  return secrets.map(secret => `${secret.name}\u0000${secret.source}\u0000${secret.strong ? 1 : 0}\u0000${secret.value}`).join('\u0001')
+  return secrets.map(secret => `${secret.name}\u0000${secret.source}\u0000${secret.strong ? 1 : 0}${secret.projectName ? 1 : 0}\u0000${secret.value}`).join('\u0001')
 }
 
 export type VeilOptions = {

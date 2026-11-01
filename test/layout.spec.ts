@@ -6,11 +6,12 @@ import { describe, it } from 'node:test'
 import { nodeFs, readCapped } from '../src/cli/node-host.ts'
 import { DEFAULT_CONFIG, parseConfig, type Config } from '../src/config/config.ts'
 import { Masker } from '../src/core/masker.ts'
+import { emptyRuleSet } from '../src/core/rules.ts'
 import { loadState } from '../src/engine.ts'
 import { report, shortPath } from '../src/report.ts'
 import { ruleSet } from '../src/rules/index.ts'
 import { isEnvFileName, loadSecrets, secretMounts, type SourceFs } from '../src/sources/load.ts'
-import { fake, fakeToken, pathFs, seeded } from './helpers.ts'
+import { LOWER, fake, fakeToken, pathFs, seeded } from './helpers.ts'
 
 const random = seeded(404)
 const token = (length = 32) => fakeToken(random, length)
@@ -482,6 +483,47 @@ files = ['C:\Users\dev\app\*.env', '~\secrets\db-password', '~/secrets/service.j
 })
 
 describe('values', () => {
+  it('reads a hostile .git file or origin URL in linear time', async () => {
+    const started = Date.now()
+    await loadSecrets(pathFs({ '/work/a/.git': `gitdir:x${' '.repeat(100_000)}y`, '/work/a/raw.env': `A=${'='.repeat(100_000)}x`, '/work/a/.env': 'DB_PASSWORD=x9Kq\n' }), { home: '/home/me', root: '/work/a', vars: {} }, { ...only({ project: true }), sources: { ...only({ project: true }).sources, files: ['/work/a/raw.env'] } })
+    await loadSecrets(pathFs({ '/work/b/.git/config': `[remote "origin"]\n\turl = https://x${'/'.repeat(100_000)}y\n`, '/work/b/.env': 'DB_PASSWORD=x9Kq\n' }), { home: '/home/me', root: '/work/b', vars: {} }, only({ project: true }))
+    assert.ok(Date.now() - started < 2000, `${Date.now() - started} ms`)
+  })
+
+  it('masks a password that is the project folder or origin repository name, or a part of it, only where it is assigned', async () => {
+    const name = fakeToken(seeded(93), 12, LOWER)
+    const other = fakeToken(seeded(94), 12, LOWER)
+    const root = `/work/${name}-team`
+    const loaded = await loadSecrets(pathFs({ [`${root}/.env`]: `DB_PASSWORD=${name}\nOTHER_PASSWORD=${other}\n` }), { home: '/home/me', root, vars: {} }, only({ project: true }))
+    const m = new Masker({ secrets: loaded.secrets, ruleSet: emptyRuleSet(), minLength: 8, encodings: ['base64', 'url', 'json', 'lines'], salt: 's' })
+    assert.equal(m.mask(`cd ${root}/src && ls ~/.config/${name}`).text, `cd ${root}/src && ls ~/.config/${name}`)
+    assert.equal(m.mask(`DB_PASSWORD=${name}`).text, 'DB_PASSWORD=[veil:DB_PASSWORD]')
+    assert.ok(!m.mask(`postgres://app:${name}@db:5432/app`).text.includes(name))
+    assert.equal(m.mask(`cd /work/${other}`).text, 'cd /work/[veil:OTHER_PASSWORD]')
+    const cased = await loadSecrets(pathFs({ [`/work/${name.toUpperCase()}/.env`]: `DB_PASSWORD=${name}\n` }), { home: '/home/me', root: `/work/${name.toUpperCase()}`, vars: {} }, only({ project: true }))
+    assert.equal(cased.secrets[0]?.projectName, true)
+    const worktree = {
+      '/wt/self-answer/.git': 'gitdir: /repo/.git/worktrees/self-answer\n',
+      '/wt/self-answer/.env': `DB_PASSWORD=${name}\n`,
+      '/repo/.git/worktrees/self-answer/commondir': '../..\n',
+      '/repo/.git/config': `[remote "upstream"]\n\turl = https://git.example.com/other/${other}.git\n[remote "origin"]\n\turl = git@git.example.com:me/${name}-team.git\n`,
+    }
+    const named = await loadSecrets(pathFs(worktree), { home: '/home/me', root: '/wt/self-answer', vars: {} }, only({ project: true }))
+    assert.equal(named.secrets.find(secret => secret.value === name)?.projectName, true)
+    const upstream = await loadSecrets(pathFs({ ...worktree, '/wt/self-answer/.env': `DB_PASSWORD=${other}\n` }), { home: '/home/me', root: '/wt/self-answer', vars: {} }, only({ project: true }))
+    assert.equal(upstream.secrets.find(secret => secret.value === other)?.projectName, undefined)
+    const upper = await loadSecrets(pathFs({ [`${root}/.env`]: `DB_PASSWORD=${name.toUpperCase()}\n` }), { home: '/home/me', root, vars: {} }, only({ project: true }))
+    assert.equal(upper.secrets[0]?.projectName, true)
+    const slashed = await loadSecrets(pathFs({ ...worktree, '/repo/.git/config': `[remote "origin"]\n\turl = https://git.example.com/me/${name}-team/\n` }), { home: '/home/me', root: '/wt/self-answer', vars: {} }, only({ project: true }))
+    assert.equal(slashed.secrets[0]?.projectName, true)
+    const nested = { '/work/plain/.env': `DB_PASSWORD=${other}\n`, '/work/plain/sub/.git/config': `[remote "origin"]\n\turl = https://git.example.com/me/${other}.git\n` }
+    const fromCwd = await loadSecrets(pathFs(nested), { home: '/home/me', root: '/work/plain', cwd: '/work/plain/sub', vars: {} }, only({ project: true }))
+    assert.equal(fromCwd.secrets.find(secret => secret.value === other)?.projectName, undefined)
+    const atHome = await loadSecrets(pathFs({ [`/home/${name}/.env`]: `DB_PASSWORD=${name}\n` }), { home: `/home/${name}`, root: `/home/${name}`, vars: {} }, only({ project: true }))
+    assert.equal(atHome.secrets.length, 1)
+    assert.equal(atHome.secrets[0]?.projectName, undefined)
+  })
+
   it('emits short non-trivial values from four characters, flagged strong only when the source proves it', async () => {
     const loaded = await loadSecrets(pathFs({ '/repo/.env': 'ADMIN_PIN=4821\nDB_PASS=x7k2\nAPI_KEY=k8s9\nSHORT_KEY=abc\nFEATURE_SECRET=false' }), { home: '/home/me', root: '/repo', vars: {} }, only({ project: true }))
     assert.deepEqual(loaded.secrets.map(secret => [secret.name, secret.strong === true]), [['ADMIN_PIN', true], ['DB_PASS', true], ['API_KEY', false]])

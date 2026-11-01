@@ -335,6 +335,16 @@ describe('veil rules: review findings', () => {
       "secret: crypto.randomBytes(32).toString('hex'),",
       'passphrase: Buffer.from(env.P, "utf8"),',
       'token = request.headers["x-token"]',
+      'const marked = list.map(secret => (names.has(secret.value) ? a : b))',
+      'items.map(password => password.trim())',
+      'secrets.map(secret => [secret.name, secret.strong === true])',
+    ])
+    const [php, ruby, printed] = [fake.symbolPassword(seeded(95)), fake.symbolPassword(seeded(96)), `${fakeToken(seeded(97), 11)}9`]
+    expectMasked([
+      ['password-assignment', `'password' => '${php}',`, php],
+      ['password-assignment', `:password => "${ruby}"`, ruby],
+      ['password-assignment', `    [password] => ${printed}`, printed],
+      ['password-assignment', `    [db_password] => ${printed}`, printed],
     ])
   })
 

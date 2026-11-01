@@ -82,7 +82,7 @@ export function looksRandomShort(value: string): boolean {
 export function scopeOf(secret: Secret, minLength: number): Scope | undefined {
   const length = secret.value.length
   const context = secret.strong === true && length >= CONTEXT_MIN && !isTrivialWord(secret.value) && secret.value.trim() === secret.value
-  if (context && isDefaultWord(secret.value)) return 'context'
+  if (context && (isDefaultWord(secret.value) || secret.projectName === true)) return 'context'
   if (length >= minLength) return 'anywhere'
   const token = length >= TOKEN_MIN && looksRandomShort(secret.value)
   if (token && context) return 'either'
