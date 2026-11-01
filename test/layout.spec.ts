@@ -475,6 +475,9 @@ files = ['C:\Users\dev\app\*.env', '~\secrets\db-password', '~/secrets/service.j
     const { config } = parseConfig('[sources]\nproject = false\nhome = false\nsystem = false\nenvironment = false\nfiles = ["~/missing.env", "~/conf/*.env", "~/notes.txt"]\n')
     const loaded = await loadSecrets(pathFs({ '/home/me/conf/readme.md': 'x', '/home/me/notes.txt': 'line one\nline two\n' }), { home: '/home/me', root: '/repo', vars: {} }, config)
     assert.deepEqual(loaded.warnings, ['sources.files: ~/missing.env was not found', 'sources.files: /home/me/notes.txt holds no values veil recognises', 'sources.files: "~/conf/*.env" matched no files'])
+    const twice = parseConfig('[sources]\nproject = false\nhome = false\nsystem = false\nenvironment = false\nfiles = ["~/conf/app.env", "~/conf/*.env"]\n')
+    const again = await loadSecrets(pathFs({ '/home/me/conf/app.env': `A_TOKEN=${fake.hex(seeded(92), 32)}\n` }), { home: '/home/me', root: '/repo', vars: {} }, twice.config)
+    assert.deepEqual(again.warnings, [])
   })
 })
 

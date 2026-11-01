@@ -29,7 +29,7 @@ export type Found = {
   readonly needle: Needle
 }
 
-const LINE_MIN = 16
+export const LINE_MIN = 16
 export const TOKEN_MIN = 6
 export const CONTEXT_MIN = 4
 const TRIVIAL = /^(?:true|false|yes|no|on|off|null|none|nil|undefined)$/i

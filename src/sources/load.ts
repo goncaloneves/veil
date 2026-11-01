@@ -406,6 +406,7 @@ export async function loadSecrets(fs: SourceFs, host: SourceHost, config: Config
   all.forEach((candidate, index) => {
     const outcome = outcomes[index]
     if (!outcome) return
+    if (candidate.pattern !== undefined) configuredPatterns.set(candidate.pattern, (configuredPatterns.get(candidate.pattern) ?? 0) + 1)
     if ('warning' in outcome) return void warnings.push(outcome.warning)
     if ('skip' in outcome) return void skipped.push({ path: candidate.path, message: outcome.skip, quiet: true })
     if ('error' in outcome) return void fail(candidate.path, outcome.error, outcome.quiet)
@@ -414,10 +415,7 @@ export async function loadSecrets(fs: SourceFs, host: SourceHost, config: Config
     taken.add(outcome.id)
     secrets.push(...outcome.found)
     files.push({ path: candidate.path, kind: outcome.kind, count: outcome.found.length })
-    if (candidate.pattern !== undefined) {
-      configuredPatterns.set(candidate.pattern, (configuredPatterns.get(candidate.pattern) ?? 0) + 1)
-      if (outcome.found.length === 0) warnings.push(`sources.files: ${candidate.path} holds no values veil recognises`)
-    }
+    if (candidate.pattern !== undefined && outcome.found.length === 0) warnings.push(`sources.files: ${candidate.path} holds no values veil recognises`)
   })
   for (const [pattern, matched] of configuredPatterns) if (matched === 0 && /[*?]/.test(pattern)) warnings.push(`sources.files: "${pattern}" matched no files`)
 

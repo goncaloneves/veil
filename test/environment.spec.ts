@@ -158,6 +158,14 @@ describe('the Claude Code hooks module', () => {
     assert.deepEqual(block(source, 'locations: await settled([').sort(), [...LOCATION_KEYS].sort())
   })
 
+  it('gives every hook that gates text or a tool call a .catch', () => {
+    const registrations = source.split('\n  on(').slice(1)
+    const gating = registrations.filter(hook => /^'(?:tool\.call|prompt\.submit|prompt\.mention|session\.append|session\.send|session\.receive|command\.run)'/.test(hook) && !hook.startsWith("'command.run', { command: 'veil' }"))
+    assert.ok(gating.some(hook => hook.startsWith("'tool.call', { tool: 'Edit' }")))
+    assert.equal(gating.length, 10)
+    for (const hook of gating) assert.match(hook, /\.catch\(\s*\(\$, e, next\) =>/, hook.slice(0, 60))
+  })
+
   it('reads every known secret variable by literal name, with no digits the validator could miss', () => {
     assert.deepEqual(block(source, 'vars: await settled([').sort(), [...ENVIRONMENT_KEYS].sort())
     assert.ok(ENVIRONMENT_KEYS.every(name => /^[A-Za-z_]+$/.test(name)))

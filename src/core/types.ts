@@ -48,8 +48,3 @@ export type Masked = {
   readonly hits: readonly Hit[]
 }
 
-export type Restored = {
-  readonly text: string
-  readonly restored: readonly string[]
-  readonly unknown: readonly string[]
-}

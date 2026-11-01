@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict'
+import { readFileSync, readdirSync } from 'node:fs'
+import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { describe, it } from 'node:test'
 import { CLAUDE_TOOLS, OPENCODE_TOOLS, PI_TOOLS, PROXY_TOOLS, checkInput, namesFile, patchSections, restoreArguments, restoreInput, type Restorer } from '../src/restore.ts'
-import { Veil, type SessionFs } from '../src/session.ts'
+import { NOTE, Veil, type SessionFs } from '../src/session.ts'
 import { fake, memoryFs, seeded } from './helpers.ts'
 
 const TOKEN = fake.hex(seeded(80), 40)
@@ -126,7 +129,9 @@ describe('restore', () => {
     const placeholder = masked.slice(masked.indexOf('['))
     assert.ok(placeholder.startsWith('[veil:'), masked)
     const guessed = await checkInput({ path: '/repo/guesses.txt', content: `x ${placeholder}` }, r, 'write')
-    assert.ok('deny' in guessed)
+    assert.ok('deny' in guessed && /goes back only into its own file/.test(guessed.deny))
+    const blank = await checkInput({ path: '/repo/public/app.js', content: `x ${placeholder}` }, r, 'write')
+    assert.ok('deny' in blank && blank.deny.replace('public/app.js', 'guesses.txt') === guessed.deny)
     const own = await checkInput({ path: '/repo/.env', content: `DB_PASSWORD=${placeholder}` }, r, 'write')
     assert.deepEqual(own, { input: { path: '/repo/.env', content: `DB_PASSWORD=${SHORT}` } })
   })
@@ -138,6 +143,24 @@ describe('restore', () => {
     const placeholder = masked.slice(masked.indexOf('['))
     const checked = await checkInput({ path: '/repo/docker-compose.yml', content: `      DB_PASSWORD: ${placeholder}\n` }, r, 'write')
     assert.deepEqual(checked, { input: { path: '/repo/docker-compose.yml', content: `      DB_PASSWORD: ${SHORT}\n` } })
+  })
+
+  it('turns placeholders into values in one place only, the restore rule in Veil', () => {
+    const root = fileURLToPath(new URL('..', import.meta.url))
+    const files = ['src', 'hooks'].flatMap(dir => readdirSync(join(root, dir), { recursive: true, encoding: 'utf8' }).filter(name => name.endsWith('.ts')).map(name => join(dir, name)))
+    const substituting = files.filter(file => /\.replace\(PLACEHOLDER|\.replaceAll\(PLACEHOLDER/.test(readFileSync(join(root, file), 'utf8')))
+    assert.deepEqual(substituting, [join('src', 'session.ts')])
+  })
+
+  it('writes into any file under always and none under never, as the note to the model says', async () => {
+    const at = async (mode: string) => {
+      const files = { ...FILES, '/home/me/.config/veil/config.toml': `[sources]\nhome = false\nenvironment = false\n[restore]\nmode = "${mode}"\n` }
+      return checkInput({ path: '/repo/public/app.js', content: 'k=[veil:API_TOKEN]' }, await restorer(PROXY_TOOLS, files), 'write')
+    }
+    assert.deepEqual(await at('always'), { input: { path: '/repo/public/app.js', content: `k=${TOKEN}` } })
+    const never = await at('never')
+    assert.ok('deny' in never && /restore mode is never/.test(never.deny))
+    assert.match(NOTE, /only where its restore setting allows, by default only into the file it came from or a file that already holds it/)
   })
 
   it('refuses a write that names no file, or a file outside the restore rule', async () => {

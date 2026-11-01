@@ -15,7 +15,7 @@ export const WITHHELD = '[veil withheld this content: it could not be checked fo
 export const NOTE = [
   'Secret values in this session are replaced by veil, a local masking tool, with placeholders such as [veil:DATABASE_URL].',
   'Treat each placeholder as an opaque reference to a real value you cannot see: never ask for the real value or try to reveal it.',
-  'In file edits, keep placeholders exactly as written; veil writes the real value back only into the file it came from or a file that already holds it, never anywhere else.',
+  'In file edits, keep placeholders exactly as written; veil writes the real value back only where its restore setting allows, by default only into the file it came from or a file that already holds it.',
   'Placeholders do not work in shell commands; use environment variables there instead.',
 ].join(' ')
 
@@ -49,7 +49,8 @@ export type EditTarget = { readonly content: string; readonly realPath?: string 
 
 export type Restoration = { readonly text: string; readonly refused?: string }
 
-const REFRESH_MS = 15_000
+export const REFRESH_MS = 15_000
+export const KNOWN_ONLY_LENGTH = 1_000_000
 
 function randomSalt(): string {
   const bytes = new Uint8Array(16)
@@ -254,13 +255,13 @@ export class Veil {
     return Date.now() + this.#budgetMs
   }
 
-  #maskText(text: string, deadline: number, options: MaskOptions = {}): string {
-    const cache = this.#cacheFor(options.scope)
+  #maskText(text: string, deadline: number, options: MaskOptions = {}, knownOnly = false): string {
+    const cache = knownOnly ? undefined : this.#cacheFor(options.scope)
     const cached = cache?.get(text)
     if (cached !== undefined) return cached
     let masked: string
     try {
-      masked = this.masker.mask(text, { deadline }).text
+      masked = this.masker.mask(text, { deadline, knownOnly }).text
     } catch (error) {
       if (options.strict) throw error
       return WITHHELD
@@ -299,7 +300,7 @@ export class Veil {
       if (mode === 'schema' && key !== undefined && SCHEMA_KEYWORDS.has(key)) return value
       if (mode === 'structural' && key !== undefined && skip?.keys?.has(key)) return value
       if (skip?.media && (isMediaUrl(value, key) || (key !== undefined && MEDIA_ARRAYS.has(key) && value.length >= 64 && BASE64_TEXT.test(value)))) return value
-      return value.length > 1_000_000 && BINARY_TEXT.test(value) ? value : this.#maskText(value, deadline, options)
+      return this.#maskText(value, deadline, options, value.length > KNOWN_ONLY_LENGTH && BINARY_TEXT.test(value))
     }
     if (Array.isArray(value)) {
       const out = value.map(item => this.#walk(item, skip, deadline, key, mode, options, depth + 1))
@@ -326,7 +327,7 @@ export class Veil {
   }
 
   unreadable(path: string): string {
-    return `veil could not check ${path}: it is outside the project, or not a regular, readable file, so veil refused this edit.`
+    return `veil could not check ${path}: it is outside the project, too large, or not a regular, readable file, so veil refused this edit.`
   }
 
   restorePlaceholders(text: string, path: string, target: EditTarget): Restoration {
@@ -347,6 +348,7 @@ export class Veil {
       if (value === undefined) refused ??= `veil cannot resolve ${whole} in this session. Read ${path} again so veil can map its secrets, then retry the edit.`
       else if (mode === 'never') refused ??= `veil's restore mode is never: it will not write the value behind ${whole}, and writing the placeholder would replace real content. Ask the user to make this edit.`
       else if (!vault.isCurrent(label)) refused ??= `${whole} no longer matches a value in your secret files, so veil will not write it. Read ${path} again and retry.`
+      else if (value.length < minLength) refused ??= `veil keeps ${whole} out of ${path} because a value this short goes back only into its own file. Reference the value through an environment variable instead, or ask the user to add it.`
       else refused ??= `veil keeps ${whole} out of ${path} because that file does not already hold it. Reference the value through an environment variable instead, or ask the user to add it.`
       return whole
     })

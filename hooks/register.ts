@@ -313,7 +313,7 @@ export const register: Register = on => {
   }).catch(($, e, next) => (next.called ? next(e) : { drop: DROP_REASON }))
 
   on('prompt.mention', async ($, e, next) => {
-    const holds = `${e.path} holds secrets. Ask Claude to read it with its Read tool, so veil can mask them.`
+    const holds = `${e.path} may hold secrets. Ask Claude to read it with its Read tool, so veil can mask them.`
     if (veil.isSource(e.path)) return { deny: holds }
     if (isMediaPath(e.path)) return next(e)
     const own = await $.fs.stat(e.path, { resolve: true }).catch(() => undefined)
@@ -457,7 +457,7 @@ export const register: Register = on => {
       })
     }
     return result
-  })
+  }).catch(($, e, next) => (next.called ? next(e) : { deny: DROP_REASON }))
 
   on('tool.call', { tool: 'Write' }, async ($, e, next) => {
     let fields = { content: e.content }
@@ -495,7 +495,7 @@ export const register: Register = on => {
       })
     }
     return result
-  })
+  }).catch(($, e, next) => (next.called ? next(e) : { deny: DROP_REASON }))
 
   on('tool.call', { tool: 'NotebookEdit' }, async ($, e, next) => {
     if (!hasPlaceholder(e.new_source)) return next(e)
@@ -516,5 +516,5 @@ export const register: Register = on => {
     )
     if ('deny' in checked) return { deny: checked.deny }
     return next({ ...e, new_source: (checked.input as { new_source: string }).new_source })
-  })
+  }).catch(($, e, next) => (next.called ? next(e) : { deny: DROP_REASON }))
 }

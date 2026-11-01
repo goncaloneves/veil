@@ -96,6 +96,7 @@ export function decompress(raw: Buffer, encoding: string): Buffer {
     }
   } catch (error) {
     if (error instanceof Refusal) throw error
+    if ((error as { code?: unknown }).code === 'ERR_BUFFER_TOO_LARGE') throw new Refusal(413, 'veil proxy takes request bodies up to 64 MiB, unpacked')
     throw new Refusal(415, 'veil proxy could not unpack this request body, so it did not forward it')
   }
   return body
@@ -118,7 +119,8 @@ function maskPart(part: Buffer, mask: (text: string) => string): Buffer {
   const split = part.indexOf('\r\n\r\n')
   if (split < 0) {
     const text = utf8(part)
-    return text === undefined ? part : Buffer.from(mask(text))
+    if (text === undefined) throw new Refusal(415, 'veil proxy cannot check a multipart part that has no headers and is not text, so it did not forward it')
+    return Buffer.from(mask(text))
   }
   const headers = part.subarray(0, split + 4).toString('latin1')
   const body = part.subarray(split + 4)

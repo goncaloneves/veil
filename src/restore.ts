@@ -72,7 +72,7 @@ function targetOf(input: Record<string, unknown>, tool: string): Target {
   if (paths.length === 0) return undefined
   const [path] = paths
   if (paths.length > 1 || path === undefined) return { refused: `veil cannot tell which file this ${tool} call writes, since it names more than one, so it keeps its placeholders out of it.` }
-  if (path === '' || trimmed(path) !== path || path.includes('[veil:')) return { refused: `veil keeps placeholders out of this ${tool} call, because its file name is empty or starts or ends with a space.` }
+  if (path === '' || trimmed(path) !== path || path.includes('[veil:')) return { refused: `veil keeps placeholders out of this ${tool} call, because its file name is empty, holds a placeholder, or starts or ends with whitespace.` }
   return { path }
 }
 

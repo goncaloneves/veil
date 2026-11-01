@@ -2,7 +2,7 @@ import { inAssignment, isWholeToken } from './context.ts'
 import { NeedleIndex, needlesFor, type Found, type Needle, type Span } from './known.ts'
 import { MaskTimeout, compileRules, findRuleSpans, type CompiledRules } from './rules.ts'
 import { checkDeadline } from './timeout.ts'
-import type { Encoding, Hit, HitKind, Masked, Restored, RuleSet, Secret } from './types.ts'
+import type { Encoding, Hit, HitKind, Masked, RuleSet, Secret } from './types.ts'
 import { PLACEHOLDER, Vault, placeholder } from './vault.ts'
 import { interleaved, joinedLines, joinedList, toOriginal, unescaped, withoutAnsi, type View } from './views.ts'
 
@@ -169,13 +169,13 @@ export class Masker {
     return { known, rules, shaped }
   }
 
-  mask(text: string, options: { readonly deadline?: number } = {}): Masked {
+  mask(text: string, options: { readonly deadline?: number; readonly knownOnly?: boolean } = {}): Masked {
     if (!text) return { text, hits: [] }
     const deadline = options.deadline ?? (this.#budgetMs === Infinity ? Infinity : Date.now() + this.#budgetMs)
     const reserved = this.#reserved(text)
     const candidates: Candidate[] = []
     let checked = 0
-    for (const candidate of this.#candidates(text, deadline)) {
+    for (const candidate of options.knownOnly ? this.#found(text, deadline) : this.#candidates(text, deadline)) {
       if ((++checked & 4095) === 0) checkDeadline(deadline)
       const held =
         candidate.kind === 'known'
@@ -214,20 +214,5 @@ export class Masker {
       hits.push({ start, end, label, kind: whole ? primary.kind : 'rule' })
     }
     return { text: out + text.slice(cursor), hits }
-  }
-
-  restore(text: string): Restored {
-    const restored: string[] = []
-    const unknown: string[] = []
-    const out = text.replace(PLACEHOLDER, (whole, label: string) => {
-      const value = this.vault.text(label)
-      if (value === undefined) {
-        unknown.push(label)
-        return whole
-      }
-      restored.push(label)
-      return value
-    })
-    return { text: out, restored, unknown }
   }
 }

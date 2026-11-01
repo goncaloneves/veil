@@ -136,12 +136,12 @@ export function weakenings(config: Config): string[] {
   const out: string[] = []
   if (!config.rules.gitleaks) out.push('the gitleaks pattern rules are off')
   if (config.rules.disable.length > 0) out.push(`rules turned off: ${config.rules.disable.join(', ')}`)
-  if (!config.sources.project) out.push("the project's .env files are not read")
+  if (!config.sources.project) out.push("the project's secret files are not read")
   if (!config.sources.home) out.push('the credentials in your home folder are not read')
   if (!config.sources.system) out.push('secret files outside your home folder, such as /run/secrets, are not read')
-  if (!config.sources.environment) out.push('API keys in the environment are not read')
-  if (config.sources.projectDepth < d.sources.projectDepth) out.push(`.env files are read only ${config.sources.projectDepth} folders deep`)
-  if (config.mask.minLength > d.mask.minLength) out.push(`values shorter than ${config.mask.minLength} characters are masked only as whole tokens or where they are assigned`)
+  if (!config.sources.environment) out.push('secret variables and *_FILE files in the environment are not read')
+  if (config.sources.projectDepth < d.sources.projectDepth) out.push(`project files are read only ${config.sources.projectDepth} folders deep`)
+  if (config.mask.minLength > d.mask.minLength) out.push(`values shorter than ${config.mask.minLength} characters are masked at most as whole tokens or where they are assigned`)
   const missing = d.mask.encodings.filter(encoding => !config.mask.encodings.includes(encoding))
   if (missing.length > 0) out.push(`encoded forms not matched: ${missing.join(', ')}`)
   if (config.env.ignoreKeys.length > 0) out.push(`variables never treated as secret: ${config.env.ignoreKeys.join(', ')}`)
@@ -156,7 +156,7 @@ project = true          # .env files and other secret files in the project, up t
 project_depth = 3
 home = true             # credential files in your home folder: cloud CLIs, keys, registries, agents, shell history
 system = true           # /run/secrets, Kubernetes service accounts, k3s and server keys outside your home folder
-environment = true      # secret variables in the agent's environment (the Claude Code plugin reads every variable only on Linux)
+environment = true      # secret variables in the environment veil runs in (the Claude Code plugin reads every variable only on Linux)
 files = []              # more secret files: dotenv, JSON, YAML, INI or a raw value, such as "~/.config/myapp/*.env"
 
 [env]
@@ -168,7 +168,7 @@ gitleaks = true         # gitleaks' pattern rules, for secrets veil has not seen
 disable = []            # rule ids to turn off, such as "generic-api-key"
 
 [mask]
-min_length = 8          # shorter values are masked only as a whole token or after a key that names them
+min_length = 8          # shorter values are masked at most as a whole token or where they are assigned
 encodings = ["base64", "url", "json", "lines"]
 
 [restore]

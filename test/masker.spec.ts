@@ -63,7 +63,7 @@ describe('Masker with known values', () => {
     ])
     const out = m.mask('x abcdefgh12345678zzzzzzzz y')
     assert.match(out.text, /^x \[veil:A~joined#[0-9a-f]+\] y$/)
-    assert.equal(m.restore(out.text).text, 'x abcdefgh12345678zzzzzzzz y')
+    assert.equal(m.vault.text(out.hits[0]?.label ?? ''), 'abcdefgh12345678zzzzzzzz')
   })
 
   it('labels every known value up front, the same in every session, so a resumed session can restore it', () => {
@@ -71,7 +71,6 @@ describe('Masker with known values', () => {
     const fresh = masker(secrets, false, 'another-salt')
     assert.equal(fresh.vault.text('API_TOKEN'), token)
     assert.equal(fresh.vault.source('API_TOKEN'), '/r/.env')
-    assert.equal(fresh.restore('[veil:API_TOKEN]').text, token)
   })
 
   it('tells same-named values apart by the file they come from', () => {
@@ -129,12 +128,10 @@ describe('Masker with known values', () => {
     assert.equal(m.mask(`[veil:${url}]`).text, '[veil:[veil:DATABASE_URL]]')
   })
 
-  it('restores placeholders it knows and leaves unknown ones alone', () => {
+  it('maps the labels it knows back to their values and nothing else', () => {
     const m = masker([{ name: 'API_TOKEN', value: token, source: '/r/.env' }])
-    const restored = m.restore('A=[veil:API_TOKEN] B=[veil:NOT_KNOWN]')
-    assert.equal(restored.text, `A=${token} B=[veil:NOT_KNOWN]`)
-    assert.deepEqual(restored.restored, ['API_TOKEN'])
-    assert.deepEqual(restored.unknown, ['NOT_KNOWN'])
+    assert.equal(m.vault.text('API_TOKEN'), token)
+    assert.equal(m.vault.text('NOT_KNOWN'), undefined)
   })
 
   it('keeps masking a rotated value under a retired label, and gives the new value the name', () => {
@@ -170,7 +167,7 @@ describe('Masker with pattern rules', () => {
     const pat = fake.githubPat(random)
     const out = m.mask(`export GH=${pat}`)
     assert.match(out.text, /^export GH=\[veil:github-pat#[0-9a-f]{6}\]$/)
-    assert.equal(m.restore(out.text).text, `export GH=${pat}`)
+    assert.equal(m.vault.text(out.hits[0]?.label ?? ''), pat)
   })
 
   it('masks private key blocks', () => {

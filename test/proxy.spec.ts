@@ -304,6 +304,18 @@ describe('veil proxy', () => {
     assert.match(unknown.text, /\/test/)
   })
 
+  it('masks a known value inside a base64-like field over 1 MB, as written and encoded', async () => {
+    canned = { type: 'application/json', body: '{}' }
+    const blob = 'QUJD'.repeat(300_000)
+    const encoded = Buffer.from(ENV).toString('base64').replace(/=+$/, '')
+    for (const inside of [TOKEN, encoded]) {
+      const answer = await send('/test/v1/chat/completions', { model: 'm', messages: [{ role: 'user', content: 'hi' }], metadata: { blob: `${blob}${inside}${blob}` } })
+      assert.equal(answer.status, 200)
+      const body = received?.body ?? ''
+      assert.ok(body.includes(blob) && !body.includes(inside))
+    }
+  })
+
   it('reads gzip and zstd request bodies, masks them, and refuses encodings it cannot read', async () => {
     canned = { type: 'application/json', body: '{}' }
     const message = { model: 'm', messages: [{ role: 'user', content: TOKEN }] }
@@ -317,6 +329,8 @@ describe('veil proxy', () => {
     received = undefined
     const refused = await send('/test/v1/chat/completions', Buffer.from(JSON.stringify(message)), { 'content-encoding': 'compress' })
     assert.equal(refused.status, 415)
+    const bomb = await send('/test/v1/chat/completions', gzipSync(Buffer.alloc(65 * 1024 * 1024, 32)), { 'content-encoding': 'gzip' })
+    assert.equal(bomb.status, 413)
     assert.equal(received, undefined)
   })
 
@@ -397,6 +411,8 @@ describe('veil proxy', () => {
     }
     received = undefined
     assert.equal((await send('/test/v1/files', Buffer.from([0xff, 0xfe, 0x00, 0x9f]), { 'content-type': 'application/zip' })).status, 415)
+    const headless = Buffer.concat([Buffer.from([0xff, 0xfe, 0x00, 0x9f]), Buffer.from(`\r\n--${boundary}--\r\n`)])
+    assert.equal((await send('/test/v1/files', headless, { 'content-type': `multipart/form-data; boundary=${boundary}` })).status, 415)
     assert.equal(received, undefined)
     assert.equal((await send('/test/v1/audio', png, { 'content-type': 'image/png' })).status, 200)
   })

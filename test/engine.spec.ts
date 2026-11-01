@@ -57,6 +57,14 @@ describe('config location guards', () => {
     }
   })
 
+  it('knows the home folder when the session starts there under its real path', async () => {
+    const files = { '/home/me/xdg/veil/config.toml': '[rules]\ngitleaks = false' }
+    const base = memoryFs(files)
+    const fs = { ...base, realPath: async (path: string) => (path.startsWith('/home/me') ? `/private${path}` : path) }
+    const loaded = await loadConfig(fs, { ...host, root: '/private/home/me', cwd: '/private/home/me', xdgConfigHome: '/home/me/xdg' })
+    assert.deepEqual(loaded.warnings, ['config: the gitleaks pattern rules are off'])
+  })
+
   it('ignores an XDG_CONFIG_HOME inside the project or relative, and says when VEIL_CONFIG is missing', async () => {
     const fs = memoryFs({ '/repo/.config/veil/config.toml': '[rules]\ngitleaks = false', '/home/me/.config/veil/config.toml': '' })
     for (const xdgConfigHome of ['/repo/.config', '.config']) {
@@ -77,7 +85,7 @@ describe('weakenings', () => {
     assert.deepEqual(weakenings(config), [
       'the credentials in your home folder are not read',
       'secret files outside your home folder, such as /run/secrets, are not read',
-      'values shorter than 12 characters are masked only as whole tokens or where they are assigned',
+      'values shorter than 12 characters are masked at most as whole tokens or where they are assigned',
       'encoded forms not matched: base64, url, lines',
     ])
   })

@@ -35,15 +35,17 @@ async function real(fs: SourceFs, path: string): Promise<string> {
 async function insideProject(fs: SourceFs, host: VeilHost, path: string): Promise<boolean> {
   const platform = host.platform
   const resolved = await real(fs, path)
+  const home = host.home ? await real(fs, host.home) : undefined
   for (const dir of [host.root, host.cwd]) {
-    if (!dir || (host.home && isInside(host.home, dir, platform))) continue
+    if (!dir) continue
     const base = await real(fs, dir)
+    if (host.home && home && (isInside(host.home, dir, platform) || isInside(home, base, platform))) continue
     if (isInside(path, dir, platform) || isInside(resolved, dir, platform) || isInside(resolved, base, platform)) return true
   }
   return false
 }
 
-export async function loadConfig(fs: SourceFs, host: VeilHost): Promise<LoadedConfig> {
+export async function configCandidates(fs: SourceFs, host: VeilHost): Promise<{ readonly paths: string[]; readonly notes: string[]; readonly veilConfig: string | undefined }> {
   const notes: string[] = []
   let veilConfig = host.veilConfig
   if (veilConfig && (!isAbsolutePath(veilConfig) || (await insideProject(fs, host, veilConfig)))) {
@@ -55,7 +57,11 @@ export async function loadConfig(fs: SourceFs, host: VeilHost): Promise<LoadedCo
     notes.push(`XDG_CONFIG_HOME=${xdgConfigHome} was ignored for veil's config: it must be an absolute path outside the project`)
     xdgConfigHome = undefined
   }
-  const paths = configPaths({ home: host.home, platform: host.platform, veilConfig, xdgConfigHome })
+  return { paths: configPaths({ home: host.home, platform: host.platform, veilConfig, xdgConfigHome }), notes, veilConfig }
+}
+
+export async function loadConfig(fs: SourceFs, host: VeilHost): Promise<LoadedConfig> {
+  const { paths, notes, veilConfig } = await configCandidates(fs, host)
   for (const path of paths) {
     try {
       if (!(await isRegularFile(fs, path))) {

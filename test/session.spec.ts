@@ -140,12 +140,21 @@ describe('VeilSession', () => {
     assert.ok('deny' in await checkEdit(veil, '/repo/.env', { content: old }, at(`API_TOKEN=${fresh}`, '/repo/.env')))
   })
 
-  it('skips only payloads that are base64 from start to end', async () => {
+  it('checks a base64 JSON string over 1 MB for known values only, in time, and plain text with the rules too', async () => {
     const veil = await session()
     const blob = 'QUJD'.repeat(300_000)
     assert.equal(veil.maskValue(blob), blob)
+    const encoded = Buffer.from(`API_TOKEN=${TOKEN}`).toString('base64').replace(/=+$/, '')
+    for (const inside of [TOKEN, encoded]) {
+      const payload = `${blob}${inside}${blob}`
+      const started = Date.now()
+      for (const masked of [veil.maskValue(payload), veil.maskValue({ data: payload }), veil.mask(payload)]) assert.ok(!JSON.stringify(masked).includes(inside))
+      assert.ok(Date.now() - started < 3000)
+    }
     const mixed = `${'QUJD'.repeat(300_000)} token ${TOKEN}`
     assert.ok(!(veil.maskValue(mixed) as string).includes(TOKEN))
+    const pat = fake.githubPat(random)
+    assert.ok(!veil.mask(`${blob}${pat}${blob}`).includes(pat))
   })
 
   it('asks for a source refresh on a read of a secret file, and otherwise at most every 15 seconds', async () => {

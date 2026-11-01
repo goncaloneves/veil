@@ -57,9 +57,12 @@ describe('veil cli', () => {
     assert.equal(piped.stdout.toString('utf8'), 'token [veil:API_TOKEN]\r\n')
   })
 
-  it('sources lists names, never values', () => {
+  it('sources lists names under every file they come from, never values', () => {
+    writeFileSync(join(dir, '.env.local'), `API_TOKEN=${token}\n`)
     const result = veil(['sources'])
+    rmSync(join(dir, '.env.local'))
     assert.match(result.stdout, /\.env \(dotenv\): API_TOKEN/)
+    assert.match(result.stdout, /\.env\.local \(dotenv\): API_TOKEN/)
     assert.ok(!result.stdout.includes(token))
   })
 
@@ -67,6 +70,9 @@ describe('veil cli', () => {
     assert.match(veil(['config', 'init']).stdout, /Created .*veil[\\/]config\.toml/)
     assert.match(veil(['config', 'init']).stdout, /already exists/)
     assert.match(veil(['config', 'path']).stdout, /veil[\\/]config\.toml/)
+    const ignored = spawnSync(process.execPath, [cli, 'config', 'path'], { cwd: dir, encoding: 'utf8', env: { ...env(), VEIL_CONFIG: 'relative.toml' } })
+    assert.match(ignored.stderr, /VEIL_CONFIG=relative\.toml was ignored/)
+    assert.doesNotMatch(ignored.stdout, /relative\.toml/)
   })
 
   it('init installs an agent adapter from a local bundle into that agent folder', () => {
@@ -90,6 +96,25 @@ describe('veil cli', () => {
     assert.equal(veil(['proxy', '--bogus']).status, 2)
     assert.equal(veil(['scan', '--bogus'], '').status, 2)
     assert.equal(veil(['init', 'kilo', '--from=']).status, 2)
+    const unnamed = veil(['proxy', '--route', 'work'])
+    assert.equal(unnamed.status, 2)
+    assert.match(unnamed.stderr, /has no =url/)
+  })
+
+  it('documents every command it has, and installs each plugin where the docs say', () => {
+    const readme = readFileSync(new URL('../README.md', import.meta.url), 'utf8')
+    const help = veil(['--help']).stdout
+    const listed = [...readme.matchAll(/^\| `veil ([a-z]+)[^`]*` \|/gm)].map(match => match[1] ?? '')
+    const helped = [...help.matchAll(/^  veil ([a-z]+)/gm)].map(match => match[1] ?? '').filter(command => command !== 'version')
+    assert.deepEqual(listed.sort(), helped.sort())
+    for (const doc of ['../INSTALL.md', '../docs/HARNESSES.md']) {
+      const text = readFileSync(new URL(doc, import.meta.url), 'utf8')
+      for (const match of text.matchAll(/^veil init (pi|opencode|kilo) +# (?:[A-Za-z ]+: )?~\/(\S+)$/gm)) {
+        const out = veil(['init', match[1] ?? '', '--dry-run']).stdout
+        const expected = (match[2] ?? '').replace(/^\.config\//, 'xdg/')
+        assert.ok(out.includes(join(dir, ...expected.split('/'))), `${doc}: ${match[0]} → ${out}`)
+      }
+    }
   })
 
   it('prints help for a command asked with --help, but still rejects an unknown one', () => {

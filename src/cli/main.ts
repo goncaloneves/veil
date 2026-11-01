@@ -5,10 +5,10 @@ import type { AddressInfo } from 'node:net'
 import { resolve } from 'node:path'
 import { parseArgs } from 'node:util'
 import pkg from '../../package.json' with { type: 'json' }
-import { STARTER_CONFIG, configPaths } from '../config/config.ts'
+import { STARTER_CONFIG } from '../config/config.ts'
 import { Masker } from '../core/masker.ts'
 import { decodeBytes, looksMisdecoded, readText } from '../core/text.ts'
-import { loadState, maskerSettings, type VeilHost, type VeilState } from '../engine.ts'
+import { configCandidates, loadState, maskerSettings, type VeilHost, type VeilState } from '../engine.ts'
 import { report, shortPath } from '../report.ts'
 import { ruleSet } from '../rules/index.ts'
 import { PROXY_TOOLS } from '../restore.ts'
@@ -28,7 +28,7 @@ Usage:
                             print the config file's path, the settings in effect, or create one
   veil doctor               check the setup: config, sources, rules, and the Claude Code version and plugin
   veil proxy [--port 8345] [--root dir] [--route name=url ...]
-                            mask what any agent sends to its model, through a local proxy
+                            mask what an agent sends to its model, through a local proxy
   veil init [claude|pi|opencode|kilo] [--dry-run] [--from file]
                             install veil into an agent (Claude Code when none is named)
   veil version              print the version
@@ -97,7 +97,7 @@ async function sources(): Promise<number> {
   const current = await state(host)
   if (current.loaded.files.length === 0) console.log('No secret files found.')
   for (const file of current.loaded.files) {
-    const names = current.loaded.secrets.filter(secret => secret.source === file.path).map(secret => secret.name)
+    const names = current.loaded.secrets.filter(secret => (secret.sources ?? [secret.source]).includes(file.path)).map(secret => secret.name)
     console.log(`${shortPath(file.path, host.home)} (${file.kind}): ${names.length > 0 ? names.join(', ') : 'no values'}`)
   }
   for (const error of current.loaded.errors) console.error(`could not read ${shortPath(error.path, host.home)}: ${error.message}`)
@@ -107,10 +107,12 @@ async function sources(): Promise<number> {
 
 async function config(action: string | undefined): Promise<number> {
   const host = nodeHost()
-  const paths = configPaths({ home: host.home, platform: host.platform, veilConfig: host.veilConfig, xdgConfigHome: host.xdgConfigHome })
+  const { paths, notes } = await configCandidates(nodeFs, host)
+  const target = paths[0] ?? `${host.home}/.config/veil/config.toml`
   if (action === 'path' || action === undefined) {
+    for (const note of notes) console.error(`warning: ${note}`)
     const current = await state(host)
-    console.log(current.configPath ?? `${paths[0]} (not created; defaults in effect)`)
+    console.log(current.configPath ?? `${target} (${(await nodeFs.exists(target).catch(() => false)) ? 'not a regular file' : 'not created'}; defaults in effect)`)
     return 0
   }
   if (action === 'show') {
@@ -120,7 +122,7 @@ async function config(action: string | undefined): Promise<number> {
     return 0
   }
   if (action === 'init') {
-    const target = paths[0] ?? `${host.home}/.config/veil/config.toml`
+    for (const note of notes) console.error(`warning: ${note}`)
     console.log((await writeNewFile(target, STARTER_CONFIG)) ? `Created ${target}` : `${target} already exists`)
     return 0
   }
@@ -176,13 +178,13 @@ async function init(args: readonly string[]): Promise<number> {
     return 2
   }
   if (target === 'claude' && values.from !== undefined) {
-    console.error(`--from installs a local adapter bundle, so it needs ${ADAPTER_TARGETS.join(', ')} as the agent`)
+    console.error(`--from installs a local adapter bundle, so it needs ${ADAPTER_TARGETS.slice(0, -1).join(', ')} or ${ADAPTER_TARGETS.at(-1)} as the agent`)
     return 2
   }
   if (target !== 'claude') {
     const adapter = ADAPTER_TARGETS.find(name => name === target)
     if (!adapter) {
-      console.error(`veil init takes claude, ${ADAPTER_TARGETS.join(', ')}; got "${target}"`)
+      console.error(`veil init takes claude, ${ADAPTER_TARGETS.slice(0, -1).join(', ')} or ${ADAPTER_TARGETS.at(-1)}; got "${target}"`)
       return 2
     }
     const path = adapterPath(adapter, process.env, nodeHost().home)
@@ -240,7 +242,7 @@ async function proxy(args: readonly string[]): Promise<number> {
     const name = spec.slice(0, cut)
     const target = routeTarget(spec.slice(cut + 1))
     if (cut < 1 || !/^[a-z0-9][a-z0-9-]*$/.test(name) || target === undefined) {
-      console.error(`--route takes name=url with an http or https URL and no credentials, such as work=https://llm.example.com/api; ${cut < 1 ? 'this one has no name' : `check the route named "${spec.slice(0, cut)}"`}`)
+      console.error(`--route takes name=url with an http or https URL and no credentials, such as work=https://llm.example.com/api; ${cut < 0 ? 'this one has no =url' : cut === 0 ? 'this one has no name' : `check the route named "${spec.slice(0, cut)}"`}`)
       return 2
     }
     routes[name] = target

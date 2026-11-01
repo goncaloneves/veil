@@ -145,7 +145,6 @@ describe('short secret tiers', () => {
   it('restores short values from the same vault labels as other known values', () => {
     const m = masker([strong])
     assert.equal(m.vault.text('DB_PASSWORD'), word)
-    assert.equal(m.restore('PGPASSWORD=[veil:DB_PASSWORD]').text, `PGPASSWORD=${word}`)
   })
 
   it('keeps plain-word default passwords to assignments, so they never mask prose or image tags', () => {
