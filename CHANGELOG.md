@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.3](https://github.com/goncaloneves/veil/compare/v0.2.2...v0.2.3) (2026-11-01)
+
+
+### Bug Fixes
+
+* stop masking project names, image tags and code that is not a secret ([b2a8530](https://github.com/goncaloneves/veil/commit/b2a85303928ca18df2291e5e17feb0e5d49b0c35))
+
 ## [0.2.2](https://github.com/goncaloneves/veil/compare/v0.2.1...v0.2.2) (2026-11-01)
 
 
