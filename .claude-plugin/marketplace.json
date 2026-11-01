@@ -11,7 +11,7 @@
       "source": {
         "source": "github",
         "repo": "goncaloneves/veil",
-        "ref": "v0.2.3"
+        "ref": "v0.2.4"
       },
       "description": "Masks your secrets before the model sees them: the real values from your secret files plus gitleaks patterns, restored only inside file edits.",
       "category": "security"
