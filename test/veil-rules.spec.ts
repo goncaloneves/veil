@@ -342,6 +342,9 @@ describe('veil rules: review findings', () => {
       '{"email": email, "password": password}',
       'secretAccessKey: accessKey,',
       'f"pass={len(passed)} fail={len(failed)}"',
+      "'password' => env('DB_PASSWORD', ''),",
+      ":text, [type='password'], [type='file'], select",
+      "'PASSWORD': os.environ.get('POSTGRES_PASSWORD'),",
     ])
     const [php, ruby, printed] = [fake.symbolPassword(seeded(95)), fake.symbolPassword(seeded(96)), `${fakeToken(seeded(97), 11)}9`]
     expectMasked([

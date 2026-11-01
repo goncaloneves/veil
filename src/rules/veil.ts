@@ -345,7 +345,7 @@ export const VEIL_RULES: readonly Rule[] = [
   ),
   rule(
     'sql-password',
-    `(?:${ci('password')}|${ci('identified')}(?:${SEP}{1,20}${ci('with')}${SEP}{1,20}\\w{1,64})?${SEP}{1,20}${ci('by')})${SEP}{0,20}(?:=${SEP}{0,20})?(?:${ci('password')}\\(${SEP}{0,20})?'((?:[^'\\\\\\n]|\\\\.|''){4,200})'`,
+    `(?:${ci('password')}(?!["'])|${ci('identified')}(?:${SEP}{1,20}${ci('with')}${SEP}{1,20}\\w{1,64})?${SEP}{1,20}${ci('by')})${SEP}{0,20}(?:=${SEP}{0,20})?(?:${ci('password')}\\(${SEP}{0,20})?'((?:[^'\\\\\\n]|\\\\.|''){4,200})'`,
     ['password', 'identified'],
     { entropy: 1.5 },
   ),
