@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.4](https://github.com/goncaloneves/veil/compare/v0.2.3...v0.2.4) (2026-11-01)
+
+
+### Bug Fixes
+
+* the password rule skips code: a word-only identifier before , ) } ; or ] and a {…} template expression ([04811c1](https://github.com/goncaloneves/veil/commit/04811c1f7d5d26191a886a81639e5fd25e798361))
+* the sql-password rule no longer reads a quoted password key, as in PHP arrays and CSS selectors, as a SQL password ([397c3cd](https://github.com/goncaloneves/veil/commit/397c3cd29dcf5e18fc3a216927884f0d7e4f3752))
+
 ## [0.2.3](https://github.com/goncaloneves/veil/compare/v0.2.2...v0.2.3) (2026-11-01)
 
 
