@@ -77,8 +77,10 @@ const WORDS: Allowlist = {
 const LITERALS = [PLACEHOLDERS, CODE]
 const FREE_TEXT = [PLACEHOLDERS, CODE, WORDS]
 
-function quotedOrBare(quotedMin: number, bareMin: number): string {
-  return `(?:"((?:[^"\\\\\\s]|\\\\.){${quotedMin},200})"|'([^'\\s]{${quotedMin},200})'|\`([^\`\\s]{${quotedMin},200})\`|([^\\s"'\`=][^\\s"'\`]{${bareMin - 1},199}))`
+const NOT_CODE = `(?![A-Za-z_$]+(?:\\??\\.[A-Za-z_$]+)*[,;)}\\]]+(?=[\\s"'\`]|$))(?!\\{)`
+
+function quotedOrBare(quotedMin: number, bareMin: number, bareGuard = ''): string {
+  return `(?:"((?:[^"\\\\\\s]|\\\\.){${quotedMin},200})"|'([^'\\s]{${quotedMin},200})'|\`([^\`\\s]{${quotedMin},200})\`|${bareGuard}([^\\s"'\`=][^\\s"'\`]{${bareMin - 1},199}))`
 }
 
 function rule(id: string, pattern: string, keywords: readonly string[], options: Partial<Rule> = {}): Rule {
@@ -182,7 +184,7 @@ export const VEIL_RULES: readonly Rule[] = [
   rule('google-oauth-refresh-token', '(?<![\\w/])1\\/\\/0[\\w-]{40,512}', ['1//0'], { secretGroup: 0, entropy: 3.5, allowlists: [] }),
   rule('google-oauth-client-secret', '\\bGOCSPX-[A-Za-z0-9_-]{28}(?![\\w-])', ['gocspx-'], { secretGroup: 0, entropy: 3, allowlists: [] }),
   rule('supabase-token', '\\b(?:sbp_[a-f0-9]{40}|sb_secret_[A-Za-z0-9_-]{20,200})\\b', ['sbp_', 'sb_secret_'], { secretGroup: 0, entropy: 3, allowlists: [] }),
-  rule('password-assignment', `(?<![\\w.;?&-])${STRONG_KEY}["']?\\]?\\??${SPACE}${VALUE_ASSIGN}${SPACE}${quotedOrBare(6, 8)}`, PASSWORD_KEYWORDS, {
+  rule('password-assignment', `(?<![\\w.;?&-])${STRONG_KEY}["']?\\]?\\??${SPACE}${VALUE_ASSIGN}${SPACE}${quotedOrBare(6, 8, NOT_CODE)}`, PASSWORD_KEYWORDS, {
     entropy: 2,
     allowlists: FREE_TEXT,
   }),

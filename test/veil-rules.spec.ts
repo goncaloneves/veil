@@ -338,6 +338,10 @@ describe('veil rules: review findings', () => {
       'const marked = list.map(secret => (names.has(secret.value) ? a : b))',
       'items.map(password => password.trim())',
       'secrets.map(secret => [secret.name, secret.strong === true])',
+      'async function remove(secret: BotSecret) {',
+      '{"email": email, "password": password}',
+      'secretAccessKey: accessKey,',
+      'f"pass={len(passed)} fail={len(failed)}"',
     ])
     const [php, ruby, printed] = [fake.symbolPassword(seeded(95)), fake.symbolPassword(seeded(96)), `${fakeToken(seeded(97), 11)}9`]
     expectMasked([
@@ -345,6 +349,8 @@ describe('veil rules: review findings', () => {
       ['password-assignment', `:password => "${ruby}"`, ruby],
       ['password-assignment', `    [password] => ${printed}`, printed],
       ['password-assignment', `    [db_password] => ${printed}`, printed],
+      ['password-assignment', `{user: bob, password: ${printed}}`, printed],
+      ['password-assignment', `password=${printed},`, printed],
     ])
   })
 
