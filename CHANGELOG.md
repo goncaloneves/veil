@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.2.2](https://github.com/goncaloneves/veil/compare/v0.2.1...v0.2.2) (2026-11-01)
+
+
+### Bug Fixes
+
+* mask known values in large base64 strings and refuse edits when a check fails ([7a21ef9](https://github.com/goncaloneves/veil/commit/7a21ef982a79c4b681f2c5cec5b48d9e2995c60e))
+
+
+### Documentation
+
+* every claim checked against the code, verified agent setups, and tests that tie the docs to the code ([ca9a9c5](https://github.com/goncaloneves/veil/commit/ca9a9c5a7bcec27c7b4c3dadc8dddff5d8e74d72))
+* the architecture diagram shows every agent, secret files kept current and the full restore rule ([ef87b56](https://github.com/goncaloneves/veil/commit/ef87b56876598b730c1b01836d762dcdfb827221))
+
 ## [0.2.1](https://github.com/goncaloneves/veil/compare/v0.2.0...v0.2.1) (2026-10-31)
 
 
