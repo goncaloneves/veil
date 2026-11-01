@@ -14,7 +14,7 @@ claude plugin validate .
 claude plugin test .
 ```
 
-Try your working copy in a real session with `claude --plugin-dir .`. To try the Pi or opencode adapter, run `npm run build:adapters` (it needs [Bun](https://bun.sh)) and `veil init pi --from dist/veil-pi.js` or `veil init opencode --from dist/veil-opencode.js`. To try the proxy, run `node src/cli/main.ts proxy` from a project folder and point an agent at it.
+Try your working copy in a real session with `claude --plugin-dir .`. To try the Pi or opencode adapter, run `npm run build:adapters` (it needs [Bun](https://bun.sh)) and `veil init pi --from dist/veil-pi.js` or `veil init opencode --from dist/veil-opencode.js`. To try the proxy, run `node <veil>/src/cli/main.ts proxy` from a project folder and point an agent at it.
 
 ## Conventions
 
@@ -22,7 +22,7 @@ Try your working copy in a real session with `claude --plugin-dir .`. To try the
 - **No runtime dependencies.** veil runs inside agents and is a security tool; every dependency is code with access to secrets. Dev dependencies are fine.
 - **The core stays agent-neutral and runtime-neutral.** `src/core`, `src/sources`, `src/config`, `src/rules`, `src/engine.ts` and `src/report.ts` use no Node, browser or agent API. `npm run typecheck` checks them with no ambient types. Anything that touches files, the environment or an agent goes through `SourceFs`, `SourceHost` or an adapter.
 - **In the Claude Code adapter, `$` stays in `hooks/register.ts`.** Claude Code requires every `$` call to be written at its call site, so `claude plugin validate` can list what the plugin does. Helpers in `src/adapters/claude-code` take plain values and functions, never `$`.
-- **No real-looking secrets in the repository.** Tests build fake tokens at run time from a seeded generator (`test/helpers.ts`), so nothing in the tree looks like a live key.
+- **No real-looking secrets in the repository.** Tests build fake tokens at run time from a seeded generator (`test/helpers.ts`, and the seeded `fakeHex` in `tests/claude-code/veil.test.ts`), so nothing in the tree looks like a live key.
 - **No code comments.** Names and tests carry the meaning; documentation lives in the Markdown files.
 - **Every change has a test.** Unit tests go in `test/*.spec.ts` (Node's runner). Tests of the Claude Code adapter go in `tests/claude-code/*.test.ts` and run in Claude Code's own runtime through `claude plugin test .`.
 
@@ -37,11 +37,11 @@ node scripts/sync-gitleaks.ts --latest   # the newest gitleaks release
 
 A weekly workflow opens a pull request when gitleaks releases new rules. If a rule fails to convert, fix the converter in `scripts/lib/re2.ts` and add a case to `test/rules.spec.ts`.
 
+`src/rules/veil.ts` holds veil's own rules, for formats gitleaks does not cover; they run beside the generated gitleaks rules.
+
 ## Repository settings
 
 release-please and the weekly rules sync open pull requests with the workflow's own token, so **Settings → Actions → General → Allow GitHub Actions to create and approve pull requests** must be on. Pull requests opened that way do not start other workflows on their own, so both workflows start `ci.yml` on the pull request's branch themselves.
-
-`src/rules/veil.ts` holds veil's own rules, for formats gitleaks does not cover; they run beside the generated gitleaks rules.
 
 ## Adding an agent
 

@@ -1,6 +1,6 @@
 # Installing veil
 
-veil runs as a native plugin in Claude Code, Pi, opencode and Kilo Code, and as `veil proxy` for every other agent. [docs/HARNESSES.md](docs/HARNESSES.md) has the setup for each agent.
+veil runs as a native plugin in Claude Code, Pi, opencode and Kilo Code, and as `veil proxy` for any agent that takes a custom API URL. [docs/HARNESSES.md](docs/HARNESSES.md) has the setup for each agent.
 
 ## Claude Code
 
@@ -56,11 +56,11 @@ veil init opencode   # ~/.config/opencode/plugins/veil.js
 veil init kilo       # ~/.config/kilo/plugin/veil.js
 ```
 
-Each downloads the adapter built for your veil version and checks it against the release's `SHA256SUMS`. `--from <file>` installs a bundle you built yourself instead, without a checksum. `PI_CODING_AGENT_DIR` and `XDG_CONFIG_HOME` move the folders, as they do for the agents. Start a new session to load it.
+Each downloads the adapter built for your veil version and checks it against the release's `SHA256SUMS`. `--from <file>` installs a bundle you built yourself instead, without a checksum. `PI_CODING_AGENT_DIR` and `XDG_CONFIG_HOME` move the folders, as they do for the agents. Restart the agent to load it.
 
-These agents have no `/veil` command. To check that veil works, run `veil sources` to see what it reads, then ask the agent to read a file that holds a secret: you should see `[veil:…]` placeholders. To update, install the newer command-line tool, then run `veil init <agent>` again so the plugin matches it. To uninstall, delete the file.
+These agents have no `/veil` command. To check that veil works, run `veil sources` to see what it reads, then ask the agent to read a file that holds a secret: you should see `[veil:…]` placeholders. To update, install the newer command-line tool, then run `veil init <agent>` again so the plugin matches it, and restart the agent. To uninstall, delete the file.
 
-## Every other agent: veil proxy
+## Other agents: veil proxy
 
 Codex, Copilot CLI, Grok Build, Gemini CLI, Crush, Goose, Aider, Cline, Continue, Zed, grok-cli and any agent that takes a custom API URL use `veil proxy`, a local server between the agent and its model API. Install the command-line tool below, start `veil proxy` in the folder you run your agent from, and point the agent at it; [docs/HARNESSES.md](docs/HARNESSES.md) has the exact setting for each agent.
 
@@ -80,7 +80,7 @@ On Windows, in PowerShell:
 irm https://raw.githubusercontent.com/goncaloneves/veil/main/install.ps1 | iex
 ```
 
-The scripts download the build for your system from the latest release, check it against the release's `SHA256SUMS` and install it to `~/.local/bin/veil`, or `%LOCALAPPDATA%\Programs\veil\veil.exe` on Windows. To pick a release or folder, set `VEIL_VERSION` or `VEIL_INSTALL_DIR` for the shell that runs the script: `curl -fsSL https://raw.githubusercontent.com/goncaloneves/veil/main/install.sh | VEIL_VERSION=v0.2.0 sh`, or in PowerShell `$env:VEIL_VERSION = 'v0.2.0'` before `irm … | iex`. To update, run the script again; to uninstall, delete the binary. Builds exist for macOS, Linux and Windows, on arm64 and x64, with musl builds for Alpine and similar systems. The x64 builds run on any x64 processor, including older servers without AVX2.
+The scripts download the build for your system from the latest release, check it against the release's `SHA256SUMS` and install it to `~/.local/bin/veil`, or `%LOCALAPPDATA%\Programs\veil\veil.exe` on Windows. To pick a release or folder, set `VEIL_VERSION` or `VEIL_INSTALL_DIR` for the shell that runs the script: `curl -fsSL https://raw.githubusercontent.com/goncaloneves/veil/main/install.sh | VEIL_VERSION=v0.2.2 sh`, or in PowerShell `$env:VEIL_VERSION = 'v0.2.2'` before `irm … | iex`. To update, run the script again; to uninstall, delete the binary. Builds exist for macOS, Linux and Windows, on arm64 and x64, with musl builds for Alpine and similar systems. The x64 builds also run on older x64 processors without AVX2.
 
 Every release build carries a GitHub build attestation. To confirm a binary was built from this repository by its release workflow:
 

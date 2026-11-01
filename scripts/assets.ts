@@ -97,9 +97,9 @@ function architecture(c: Theme): string {
     card(c, 44, 204, 270, 70, 'Your environment', ['GITHUB_TOKEN  OPENAI_API_KEY…']),
     `<rect x="44" y="300" width="270" height="256" rx="12" fill="${c.card}" stroke="${c.border}"/>`,
     text(c, 60, 326, 'Your coding agent', { anchor: 'start', size: 15, color: c.text, weight: 600 }),
-    text(c, 60, 346, 'Claude Code · Pi · opencode', { anchor: 'start', size: 13, weight: 400 }),
+    text(c, 60, 346, 'Claude Code · Pi · opencode · Kilo', { anchor: 'start', size: 13, weight: 400 }),
     ...['prompts', 'tool results', 'file reads', 'errors', 'system prompt', 'memory files'].map((body, i) => chip(c, 60 + (i % 2) * 122, 366 + Math.floor(i / 2) * 44, body)),
-    text(c, 60, 528, '+ any agent through veil proxy', { anchor: 'start', size: 12.5, weight: 400 }),
+    text(c, 60, 528, '+ other agents via veil proxy', { anchor: 'start', size: 12.5, weight: 400 }),
     `<rect x="392" y="150" width="216" height="300" rx="20" fill="url(#veilbox)"/>`,
     glyph(470, 176, 60, 'arch', 'rgba(255,255,255,0.16)'),
     text(c, 500, 272, 'veil', { size: 34, color: '#FFFFFF', weight: 700 }),
@@ -115,7 +115,7 @@ function architecture(c: Theme): string {
     arrow(c, 314, 430, 390, 360),
     `<rect x="910" y="96" width="270" height="200" rx="14" fill="${c.panel}" stroke="${c.border}"/>`,
     text(c, 926, 124, 'The model', { anchor: 'start', size: 15, color: c.text, weight: 600 }),
-    text(c, 926, 144, 'never sees a real value', { anchor: 'start', size: 13, weight: 400 }),
+    text(c, 926, 144, 'sees placeholders instead', { anchor: 'start', size: 13, weight: 400 }),
     text(c, 926, 186, 'API_TOKEN=', mono),
     text(c, 926, 208, '[veil:API_TOKEN]', { ...mono, color: c.placeholder, weight: 600 }),
     text(c, 926, 244, 'DATABASE_URL=', mono),
@@ -132,7 +132,7 @@ function architecture(c: Theme): string {
     text(c, 656, 538, 'own file or one that holds it', { anchor: 'start', size: 12, weight: 400 }),
     arrow(c, 560, 452, 638, 478),
   ]
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="600" viewBox="0 0 1200 600" role="img" aria-label="How veil works: it reads your secret files and environment, keeps the files current, masks every text your coding agent sends to the model, and restores real values only into their own file or one that already holds them">
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="600" viewBox="0 0 1200 600" role="img" aria-label="How veil works: it reads your secret files and environment, keeps the files current, masks what your coding agent sends to the model, and restores real values only into their own file or one that already holds them">
   ${parts.join('\n  ')}
 </svg>
 `

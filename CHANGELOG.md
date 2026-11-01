@@ -5,33 +5,33 @@
 
 ### Bug Fixes
 
-* **cli:** help for each command, proxy paths read from the folder it starts in, and accurate help and starter config text ([0b7f707](https://github.com/goncaloneves/veil/commit/0b7f707456500d567e7d8272586f051ba85658ee))
+* **cli:** `--help` after any command, proxy paths read from the folder it starts in, and accurate help and starter config text ([619290c](https://github.com/goncaloneves/veil/commit/619290ca7bc0f08571377b185d6a10a616dbe111))
 
 
 ### Documentation
 
-* install, update and check veil for every agent, and match every claim to the code ([054f02f](https://github.com/goncaloneves/veil/commit/054f02fcdf0cc2e9b5db744d1392f608ee58f5a8))
+* install, update and check veil for every agent, and correct claims that did not match the code ([69063ab](https://github.com/goncaloneves/veil/commit/69063ab2f32643d88ac5ed9f186a567ffe3eb591))
 
 ## [0.2.0](https://github.com/goncaloneves/veil/compare/v0.1.0...v0.2.0) (2026-10-31)
 
 
 ### Features
 
-* **core:** mask known values in every listed encoding and catch more secret formats ([d888f76](https://github.com/goncaloneves/veil/commit/d888f7681c028c1f2f75cfbd589b01a2b39fc018))
-* **sources:** load secrets from their usual places on macOS, Linux, servers and Windows ([a265eed](https://github.com/goncaloneves/veil/commit/a265eed95099ebec30ee1131736aa6249af69e97))
-* veil works with any agent through native plugins for Pi and opencode and a local proxy ([cc6a8e4](https://github.com/goncaloneves/veil/commit/cc6a8e48d60a6c26ea4971f86e0cac9537fb7602))
-* **build:** Windows and baseline x64 binaries, adapter bundles in each release, and safer installers ([9db1352](https://github.com/goncaloneves/veil/commit/9db1352))
+* **core:** mask known values in every listed encoding and catch more secret formats ([bf40ce6](https://github.com/goncaloneves/veil/commit/bf40ce66a9e3d1835a4c3ab58d7360df10c65d00))
+* **sources:** load secrets from their usual places on macOS, Linux, servers and Windows ([2e18f5d](https://github.com/goncaloneves/veil/commit/2e18f5dbc46352324292640e74f2c93450e024ea))
+* veil works with any agent through native plugins for Pi and opencode and a local proxy ([e122b14](https://github.com/goncaloneves/veil/commit/e122b1457c7b5b5c876dfb166e18362995dad7a0))
+* **build:** Windows and baseline x64 binaries, adapter bundles in each release, and safer installers ([4c45348](https://github.com/goncaloneves/veil/commit/4c453484895e45ff5ad9cd8f67c97ebd25715bf2))
 
 
 ### Documentation
 
-* a logo, an architecture diagram and a clearer README ([bb43d3a](https://github.com/goncaloneves/veil/commit/bb43d3a64f9b8df6a21fe71a587d89dc55bb5a74))
-* list zero runtime dependencies among veil's benefits ([8d737f0](https://github.com/goncaloneves/veil/commit/8d737f025ff7ed72998ebd14cde4e881117a08f0))
-* what veil masks, how to set it up for each agent, and its limits ([0fed499](https://github.com/goncaloneves/veil/commit/0fed499f628f9197e2221fa089e3d03fc9283c34))
+* a logo, an architecture diagram and a clearer README ([614bdcb](https://github.com/goncaloneves/veil/commit/614bdcb347340ad25c2ab161dddf2b1e3c53aca6))
+* list zero runtime dependencies among veil's benefits ([b3d09af](https://github.com/goncaloneves/veil/commit/b3d09af4d62da43e78323e3762958e9f89350b0c))
+* what veil masks, how to set it up for each agent, and its limits ([ad3a3fa](https://github.com/goncaloneves/veil/commit/ad3a3fae6b72f9e90e71b00db64ba2a14ffcf48a))
 
 ## 0.1.0 (2026-10-31)
 
 
 ### Features
 
-* veil, masks your secrets before your coding agent's model sees them ([f94ccd6](https://github.com/goncaloneves/veil/commit/f94ccd679d85cf59ec4ca878e3c264870e72f5ff))
+* veil, masks your secrets before your coding agent's model sees them ([ff5674e](https://github.com/goncaloneves/veil/commit/ff5674eb754db71aa087e605623e15e6c4c5ef69))
