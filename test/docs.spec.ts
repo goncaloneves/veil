@@ -12,7 +12,7 @@ import { MAX_TEXT } from '../src/sources/load.ts'
 
 const root = fileURLToPath(new URL('..', import.meta.url))
 const DOCS = ['README.md', 'INSTALL.md', 'SECURITY.md', 'CONTRIBUTING.md', 'AGENTS.md', 'CHANGELOG.md', 'docs/HARNESSES.md', 'docs/ARCHITECTURE.md']
-const read = (path: string) => readFileSync(join(root, path), 'utf8')
+const read = (path: string) => readFileSync(join(root, path), 'utf8').replace(/\r\n/g, '\n')
 const doc = Object.fromEntries(DOCS.map(path => [path, read(path)]))
 const cli = read('src/cli/main.ts')
 
@@ -44,7 +44,7 @@ describe('the docs', () => {
         const [file = '', anchor] = target.split('#')
         const full = file === '' ? join(root, path) : join(root, dirname(path), file)
         assert.ok(existsSync(full), `${path} links to ${target}`)
-        if (anchor !== undefined) assert.ok(anchors(readFileSync(full, 'utf8')).has(anchor), `${path} links to #${anchor} in ${file || path}`)
+        if (anchor !== undefined) assert.ok(anchors(readFileSync(full, 'utf8').replace(/\r\n/g, '\n')).has(anchor), `${path} links to #${anchor} in ${file || path}`)
       }
     }
   })

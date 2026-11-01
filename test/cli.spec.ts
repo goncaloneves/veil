@@ -102,14 +102,17 @@ describe('veil cli', () => {
   })
 
   it('documents every command it has, and installs each plugin where the docs say', () => {
-    const readme = readFileSync(new URL('../README.md', import.meta.url), 'utf8')
+    const readme = readFileSync(new URL('../README.md', import.meta.url), 'utf8').replace(/\r\n/g, '\n')
     const help = veil(['--help']).stdout
     const listed = [...readme.matchAll(/^\| `veil ([a-z]+)[^`]*` \|/gm)].map(match => match[1] ?? '')
-    const helped = [...help.matchAll(/^  veil ([a-z]+)/gm)].map(match => match[1] ?? '').filter(command => command !== 'version')
+    const helped = [...help.replace(/\r\n/g, '\n').matchAll(/^  veil ([a-z]+)/gm)].map(match => match[1] ?? '').filter(command => command !== 'version')
+    assert.ok(listed.length >= 6)
     assert.deepEqual(listed.sort(), helped.sort())
     for (const doc of ['../INSTALL.md', '../docs/HARNESSES.md']) {
-      const text = readFileSync(new URL(doc, import.meta.url), 'utf8')
-      for (const match of text.matchAll(/^veil init (pi|opencode|kilo) +# (?:[A-Za-z ]+: )?~\/(\S+)$/gm)) {
+      const text = readFileSync(new URL(doc, import.meta.url), 'utf8').replace(/\r\n/g, '\n')
+      const lines = [...text.matchAll(/^veil init (pi|opencode|kilo) +# (?:[A-Za-z ]+: )?~\/(\S+)$/gm)]
+      assert.equal(lines.length, 3, doc)
+      for (const match of lines) {
         const out = veil(['init', match[1] ?? '', '--dry-run']).stdout
         const expected = (match[2] ?? '').replace(/^\.config\//, 'xdg/')
         assert.ok(out.includes(join(dir, ...expected.split('/'))), `${doc}: ${match[0]} → ${out}`)
