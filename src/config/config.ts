@@ -160,11 +160,11 @@ environment = true      # secret variables in the environment veil runs in (the 
 files = []              # more secret files: dotenv, JSON, YAML, INI or a raw value, such as "~/.config/myapp/*.env"
 
 [env]
-secret_keys = []        # more variable-name patterns to treat as secret, such as "*_DSN"
-ignore_keys = []        # variable-name patterns never treated as secret, such as "SENTRY_ENVIRONMENT"
+secret_keys = []        # more variable-name patterns to treat as secret, such as "*_DSN", outside config files such as docker-compose.yml
+ignore_keys = []        # variable-name patterns veil does not load as secrets, such as "SENTRY_ENVIRONMENT", likewise; secret_keys wins
 
 [rules]
-gitleaks = true         # gitleaks' pattern rules, for secrets veil has not seen in a file; veil's own rules always run
+gitleaks = true         # gitleaks' pattern rules, for secrets veil has not seen in a file; veil's own rules run unless listed in disable
 disable = []            # rule ids to turn off, such as "generic-api-key"
 
 [mask]

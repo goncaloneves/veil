@@ -85,7 +85,7 @@ The scripts download the build for your system from the latest release, check it
 Every release build carries a GitHub build attestation. To confirm a binary was built from this repository by its release workflow:
 
 ```sh
-gh attestation verify ~/.local/bin/veil --repo goncaloneves/veil
+gh attestation verify ~/.local/bin/veil --repo goncaloneves/veil --signer-workflow goncaloneves/veil/.github/workflows/release.yml
 ```
 
 You can also download a build from the [releases page](https://github.com/goncaloneves/veil/releases) yourself (then `chmod +x` it, and on macOS `xattr -d com.apple.quarantine` it, since the build is only ad-hoc signed), or run veil from a clone with Node 22.18 or later:

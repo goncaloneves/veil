@@ -37,7 +37,7 @@ node scripts/sync-gitleaks.ts --latest   # the newest gitleaks release
 
 A weekly workflow opens a pull request when gitleaks releases new rules. If a rule fails to convert, fix the converter in `scripts/lib/re2.ts` and add a case to `test/rules.spec.ts`.
 
-`src/rules/veil.ts` holds veil's own rules, for formats gitleaks does not cover; they run beside the generated gitleaks rules.
+`src/rules/veil.ts` holds veil's own rules, for formats gitleaks does not cover; they run beside the generated gitleaks rules. It also holds `RULE_ALLOWLISTS`, extra allowlists for gitleaks rules, which is where a gitleaks false positive is fixed.
 
 ## Repository settings
 
