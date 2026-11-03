@@ -25,7 +25,9 @@ import { gpgKeyParts, jwkSecrets, keyFileSecrets, privateKeyBlocks, puttyKeys } 
 import { parseDotenv } from '../src/sources/dotenv.ts'
 import { envSecrets, looksRandom } from '../src/sources/env-policy.ts'
 import { envEntrySecrets, keyedLeaves } from '../src/sources/tree.ts'
-import { PRINTABLE, fake, fakeToken, seeded } from './helpers.ts'
+import { parseConfig } from '../src/config/config.ts'
+import { loadSecrets } from '../src/sources/load.ts'
+import { PRINTABLE, fake, fakeToken, memoryFs, seeded } from './helpers.ts'
 
 const random = seeded(101)
 const token = (length = 32) => fakeToken(random, length)
@@ -253,6 +255,19 @@ describe('references and placeholders', () => {
 })
 
 describe('values inside variables', () => {
+  it('takes a compose environment value for a secret by its name, never only because it looks random', async () => {
+    const random = seeded(121)
+    const [listeners, key, pw] = [`PLAINTEXT://kafka:9092,${fakeToken(random, 30)}://0.0.0.0:29092`, fakeToken(random, 40), fakeToken(random, 16)]
+    const compose = `services:\n  kafka:\n    environment:\n      KAFKA_ADVERTISED_LISTENERS: ${listeners}\n      API_KEY: ${key}\n      DB_PASSWORD: ${pw}\n`
+    const loaded = await loadSecrets(memoryFs({ '/repo/docker-compose.yml': compose }), { home: '/home/me', root: '/repo', vars: {} }, parseConfig('[sources]\nhome = false\nsystem = false\nenvironment = false\n').config)
+    assert.deepEqual(values(loaded.secrets).sort(), [key, pw].sort())
+    const seed = fakeToken(random, 40)
+    const neutral = await loadSecrets(memoryFs({ '/repo/docker-compose.yml': `services:\n  app:\n    environment:\n      BUILD_SEED: ${seed}\n` }), { home: '/home/me', root: '/repo', vars: {} }, parseConfig('[sources]\nhome = false\nsystem = false\nenvironment = false\n').config)
+    assert.deepEqual(values(neutral.secrets), [])
+    const dotenv = await loadSecrets(memoryFs({ '/repo/.env': `BUILD_SEED=${seed}\n` }), { home: '/home/me', root: '/repo', vars: {} }, parseConfig('[sources]\nhome = false\nsystem = false\nenvironment = false\n').config)
+    assert.deepEqual(values(dotenv.secrets), [seed])
+  })
+
   it('never takes an image or a tag for a secret because it looks random, as a compose environment would', () => {
     const image = `ghcr.io/${fakeToken(seeded(97), 14).toLowerCase()}/sandbox-computer:${fakeToken(seeded(98), 10)}`
     const tag = fakeToken(seeded(99), 32)
