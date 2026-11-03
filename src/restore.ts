@@ -160,6 +160,11 @@ async function patch(text: string, restorer: Restorer): Promise<Walked> {
       refused ??= restored.refused
       const marker = /^[+\- ]/.test(line) ? line.charAt(0) : ''
       const body = restored.text.replace(/\r?\n$/, '')
+      if (!marker && /\n/.test(body)) {
+        refused ??= `veil cannot write a multi-line value into a patch line that does not start with +, - or a space, as in ${section.path}. Put the placeholder on an added line instead.`
+        out.push(line)
+        continue
+      }
       out.push(marker ? body.replace(/\r?\n/g, newline => newline + marker) + restored.text.slice(body.length) : restored.text)
     }
   }

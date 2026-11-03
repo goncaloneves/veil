@@ -255,15 +255,15 @@ describe('references and placeholders', () => {
 })
 
 describe('values inside variables', () => {
-  it('takes a compose environment value for a secret by its name, never only because it looks random', async () => {
+  it('takes a compose URL value for a secret by its name, never only because it looks random', async () => {
     const random = seeded(121)
     const [listeners, key, pw] = [`PLAINTEXT://kafka:9092,${fakeToken(random, 30)}://0.0.0.0:29092`, fakeToken(random, 40), fakeToken(random, 16)]
     const compose = `services:\n  kafka:\n    environment:\n      KAFKA_ADVERTISED_LISTENERS: ${listeners}\n      API_KEY: ${key}\n      DB_PASSWORD: ${pw}\n`
     const loaded = await loadSecrets(memoryFs({ '/repo/docker-compose.yml': compose }), { home: '/home/me', root: '/repo', vars: {} }, parseConfig('[sources]\nhome = false\nsystem = false\nenvironment = false\n').config)
     assert.deepEqual(values(loaded.secrets).sort(), [key, pw].sort())
     const seed = fakeToken(random, 40)
-    const neutral = await loadSecrets(memoryFs({ '/repo/docker-compose.yml': `services:\n  app:\n    environment:\n      BUILD_SEED: ${seed}\n` }), { home: '/home/me', root: '/repo', vars: {} }, parseConfig('[sources]\nhome = false\nsystem = false\nenvironment = false\n').config)
-    assert.deepEqual(values(neutral.secrets), [])
+    const neutral = await loadSecrets(memoryFs({ '/repo/docker-compose.yml': `services:\n  app:\n    environment:\n      BUILD_SEED: ${seed}\n      TS_AUTHKEY: tskey-auth-${seed}\n` }), { home: '/home/me', root: '/repo', vars: {} }, parseConfig('[sources]\nhome = false\nsystem = false\nenvironment = false\n').config)
+    assert.deepEqual(values(neutral.secrets).sort(), [seed, `tskey-auth-${seed}`].sort())
     const dotenv = await loadSecrets(memoryFs({ '/repo/.env': `BUILD_SEED=${seed}\n` }), { home: '/home/me', root: '/repo', vars: {} }, parseConfig('[sources]\nhome = false\nsystem = false\nenvironment = false\n').config)
     assert.deepEqual(values(dotenv.secrets), [seed])
   })

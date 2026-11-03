@@ -357,6 +357,9 @@ describe('veil rules: review findings', () => {
       'session_key=self._get_or_create_session_key(),',
       '\tauth := Authentication{\n',
       "'--store-password=[password for storefronts]:store-password:' \\",
+      '"auth.password": "Contrase\u00f1a",',
+      '"password": "\u041f\u0430\u0440\u043e\u043b\u044c\u0412\u0445\u043e\u0434",',
+      'auth = None',
       "'PASSWORD': os.environ.get('POSTGRES_PASSWORD'),",
     ])
     const [php, ruby, printed] = [fake.symbolPassword(seeded(95)), fake.symbolPassword(seeded(96)), `${fakeToken(seeded(97), 11)}9`]
@@ -369,6 +372,7 @@ describe('veil rules: review findings', () => {
       ['password-assignment', `password=${printed},`, printed],
       ['connection-string-password', `Server=db;Database=app;Password=${printed};`, printed],
       ['connection-string-password', `Server=db;Password=${php};Trusted=no`, php],
+      ['connection-string-password', `Server=db;Password=[${printed};`, printed],
     ])
   })
 

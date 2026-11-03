@@ -79,13 +79,13 @@ const FREE_TEXT = [PLACEHOLDERS, CODE, WORDS]
 
 const CODE_PATH = `[A-Za-z_$][\\w$]*(?:\\??\\.[A-Za-z_$][\\w$]*)*`
 const CODE_END = `[,;:)}\\]]+(?=[\\s"'\`]|$)`
-const NOT_CALL = `(?!${CODE_PATH}\\()`
-const NOT_CODE = `(?![A-Za-z_$]+(?:\\??\\.[A-Za-z_$]+)*${CODE_END})(?![A-Za-z_$][\\w$]*(?:\\??\\.[A-Za-z_$][\\w$]*)+${CODE_END})${NOT_CALL}(?![\\[<({])`
+const NOT_CALL = `(?!${CODE_PATH}\\((?:[)"'\`\\[{]|[A-Za-z_$][\\w$.]*[(),]))`
+const NOT_CODE = `(?![A-Za-z_$]+(?:\\??\\.[A-Za-z_$]+)*${CODE_END})(?![A-Za-z_$][\\w$]*(?:\\??\\.[A-Za-z_$][\\w$]*)+${CODE_END})${NOT_CALL}(?!\\{|\\[[\\]A-Za-z_]|<[/A-Za-z]|\\([A-Za-z_)])`
 const NON_ASCII = '\\u0080-\\uffff'
 
 function quotedOrBare(quotedMin: number, bareMin: number, bareGuard = '', exclude = ''): string {
-  const tail = exclude ? `(?![${exclude}])` : ''
-  return `(?:"((?:[^"\\\\\\s${exclude}]|\\\\.){${quotedMin},200})"|'([^'\\s${exclude}]{${quotedMin},200})'|\`([^\`\\s${exclude}]{${quotedMin},200})\`|${bareGuard}([^\\s"'\`=${exclude}][^\\s"'\`${exclude}]{${bareMin - 1},199})${tail})`
+  const guard = exclude ? `(?![^\\s"'\`]{0,200}[${exclude}])` : ''
+  return `(?:"((?:[^"\\\\\\s${exclude}]|\\\\.){${quotedMin},200})"|'([^'\\s${exclude}]{${quotedMin},200})'|\`([^\`\\s${exclude}]{${quotedMin},200})\`|${bareGuard}${guard}([^\\s"'\`=${exclude}][^\\s"'\`${exclude}]{${bareMin - 1},199}))`
 }
 
 function rule(id: string, pattern: string, keywords: readonly string[], options: Partial<Rule> = {}): Rule {
@@ -239,7 +239,7 @@ export const VEIL_RULES: readonly Rule[] = [
   ),
   rule(
     'connection-string-password',
-    `(?:^|;|["'])${SPACE}${anyOf(['password', 'pwd', 'user password'])}${SPACE}=(?!=)${SPACE}(?:'([^'\\n]{4,200})'|"([^"\\n]{4,200})"|\\{([^}\\n]{4,200})\\}|${NOT_CALL}([^;'"\\s{\\[][^;'"\\s]{3,199}))`,
+    `(?:^|;|["'])${SPACE}${anyOf(['password', 'pwd', 'user password'])}${SPACE}=(?!=)${SPACE}(?:'([^'\\n]{4,200})'|"([^"\\n]{4,200})"|\\{([^}\\n]{4,200})\\}|${NOT_CALL}([^;'"\\s{][^;'"\\s]{3,199}))`,
     ['password', 'pwd'],
     { entropy: 1.5, allowlists: FREE_TEXT },
   ),

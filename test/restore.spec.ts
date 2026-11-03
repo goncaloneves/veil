@@ -82,6 +82,8 @@ describe('restore', () => {
     const body = out.split('\n').slice(3, -1)
     assert.ok(body.length > 3 && body.slice(1).every(line => line.startsWith('+')), JSON.stringify(body.map(line => line.slice(0, 2))))
     assert.ok(out.includes(key.split('\n')[1] ?? 'x'))
+    const anchored = await checkInput('*** Begin Patch\n*** Update File: .env\n@@ PRIVATE_KEY="[veil:PRIVATE_KEY]"\n+DEBUG=1\n*** End Patch', r, 'apply_patch')
+    assert.ok('deny' in anchored && /multi-line value/.test(anchored.deny))
     const numbered = r.veil.mask(`  5  PRIVATE_KEY="${key.split('\n').join('\n  6  ')}"`)
     const label = numbered.match(/\[veil:([^\]]*~joined[^\]]*)\]/)?.[1]
     assert.ok(label)

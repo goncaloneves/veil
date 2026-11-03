@@ -329,7 +329,7 @@ export class Veil {
       if (mode === 'structural' && (skip?.types ? typeof record.type === 'string' && skip.types.has(record.type) && !svgData(record) : isMedia(record))) return value
       let changed = false
       const out: Record<string, unknown> = {}
-      const pair = typeof record.name === 'string' ? record.name : typeof record.key === 'string' ? record.key : undefined
+      const pair = [record.name, record.key, record.Name, record.Key].find((item): item is string => typeof item === 'string')
       for (const [field, item] of Object.entries(record)) {
         const free = mode === 'structural' && depth > 0 && skip?.free?.has(field)
         const next: Mode = free ? 'free' : mode === 'structural' && skip?.schema?.has(field) ? 'schema' : mode

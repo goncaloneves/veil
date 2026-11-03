@@ -97,7 +97,8 @@ describe('real code in many languages', () => {
       `'password' => '${symbol}',`,
       `    [password] => ${value}`,
       `Server=db;Password=${value};`,
-      `dropbox_token = "${fakeToken(random, 13)}4x"`,
     ]) assert.ok(hitsIn(line).length > 0, line)
+    assert.ok(hitsIn(`dropbox_token = "${fakeToken(random, 13)}4x"`).some(hit => hit.startsWith('dropbox-api-token')))
+    assert.deepEqual(hitsIn(`password: ${value}\u00fc`), [])
   })
 })

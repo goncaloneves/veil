@@ -294,7 +294,7 @@ export function pickSecrets(leaves: readonly Leaf[], source: string, prefix: str
     const name = `${prefix}/${named.join('.')}`
     if (ignore.has(norm(key))) continue
     if (ENV_PARENTS.has(norm(parent))) {
-      out.push(...envEntrySecrets([{ key, value, literal: true }], source, options.config ? { ...OPEN_POLICY, random: false } : OPEN_POLICY).map(secret => ({ ...secret, name: `${prefix}/${named.slice(0, -1).join('.')}.${secret.name}` })))
+      out.push(...envEntrySecrets([{ key, value, literal: true }], source, options.config && value.includes('://') ? { ...OPEN_POLICY, random: false } : OPEN_POLICY).map(secret => ({ ...secret, name: `${prefix}/${named.slice(0, -1).join('.')}.${secret.name}` })))
       continue
     }
     out.push(...valueSecrets(value, source, name))

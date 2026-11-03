@@ -172,9 +172,9 @@ describe('VeilSession', () => {
       adapterFs({ '/home/me/.config/veil/config.toml': '[sources]\nhome = false\nenvironment = false\n', '/repo/.env': 'POSTGRES_PASSWORD=postgres\n' }),
       { home: '/home/me', root: '/repo', cwd: '/repo', platform: 'linux', vars: {} },
     )
-    const record = { structuredContent: { password: 'postgres', env: [{ name: 'POSTGRES_PASSWORD', value: 'postgres' }], passwords: ['postgres'], image: 'postgres', note: 'postgres', args: ['postgres'] } }
+    const record = { structuredContent: { password: 'postgres', env: [{ name: 'POSTGRES_PASSWORD', value: 'postgres' }, { Name: 'POSTGRES_PASSWORD', Value: 'postgres' }], passwords: ['postgres'], image: 'postgres', note: 'postgres', args: ['postgres'] } }
     assert.deepEqual(veil.maskValue(record), {
-      structuredContent: { password: '[veil:POSTGRES_PASSWORD]', env: [{ name: 'POSTGRES_PASSWORD', value: '[veil:POSTGRES_PASSWORD]' }], passwords: ['[veil:POSTGRES_PASSWORD]'], image: 'postgres', note: 'postgres', args: ['postgres'] },
+      structuredContent: { password: '[veil:POSTGRES_PASSWORD]', env: [{ name: 'POSTGRES_PASSWORD', value: '[veil:POSTGRES_PASSWORD]' }, { Name: 'POSTGRES_PASSWORD', Value: '[veil:POSTGRES_PASSWORD]' }], passwords: ['[veil:POSTGRES_PASSWORD]'], image: 'postgres', note: 'postgres', args: ['postgres'] },
     })
     const bodies: [unknown, 'gemini' | 'bedrock' | 'anthropic'][] = [
       [{ contents: [{ role: 'user', parts: [{ functionResponse: { name: 'config', response: { password: 'postgres' } } }] }] }, 'gemini'],
