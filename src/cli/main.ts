@@ -135,18 +135,16 @@ async function config(action: string | undefined): Promise<number> {
 }
 
 const WINDOWS = process.platform === 'win32'
+const SYSTEM32 = join(process.env.SystemRoot || 'C:\\Windows', 'System32')
 
-function run(command: string, args: readonly string[]): { ok: boolean; missing: boolean; out: string } {
-  const result = WINDOWS
-    ? spawnSync(process.env.ComSpec || join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'cmd.exe'), ['/d', '/s', '/c', command, ...args], { encoding: 'utf8' })
-    : spawnSync(command, args, { encoding: 'utf8' })
-  const missing = (result.error as NodeJS.ErrnoException | undefined)?.code === 'ENOENT' || (WINDOWS && result.status === 9009)
-  return { ok: result.status === 0, missing, out: `${result.stdout ?? ''}${result.stderr ?? ''}` }
+function run(command: string, args: readonly string[]): { ok: boolean; out: string } {
+  const result = WINDOWS ? spawnSync(process.env.ComSpec || join(SYSTEM32, 'cmd.exe'), ['/d', '/s', '/c', command, ...args], { encoding: 'utf8' }) : spawnSync(command, args, { encoding: 'utf8' })
+  return { ok: result.status === 0, out: `${result.stdout ?? ''}${result.stderr ?? ''}` }
 }
 
-function locate(command: string): string {
-  const found = WINDOWS ? run('where', [command]) : run('/bin/sh', ['-c', `command -v ${command}`])
-  return found.ok ? (found.out.split(/\r?\n/)[0] ?? '').trim() : 'unknown location'
+function locate(command: string): string | undefined {
+  const result = WINDOWS ? spawnSync(join(SYSTEM32, 'where.exe'), [command], { encoding: 'utf8' }) : spawnSync('/bin/sh', ['-c', `command -v ${command}`], { encoding: 'utf8' })
+  return result.status === 0 ? (result.stdout ?? '').split(/\r?\n/)[0]?.trim() || undefined : undefined
 }
 
 async function doctor(): Promise<number> {
@@ -156,16 +154,17 @@ async function doctor(): Promise<number> {
   console.log(report(instance, current, { version: pkg.version, home: host.home }).split('\n').filter(line => !line.startsWith('masked this session')).join('\n'))
   let problems = current.warnings.length
   const version = run('claude', ['--version'])
-  if (version.missing && locate('claude') === 'unknown location') {
-    console.log('claude code: not found on PATH, which only the Claude Code plugin needs')
-    return problems > 0 ? 1 : 0
-  }
+  const located = locate('claude')
   if (!version.ok) {
-    console.log(`claude code: claude --version failed at ${locate('claude')}`)
+    if (located === undefined) {
+      console.log('claude code: not found on PATH, which only the Claude Code plugin needs')
+      return problems > 0 ? 1 : 0
+    }
+    console.log(`claude code: claude --version failed at ${located}`)
     return 1
   }
   const found = version.out.match(/\d+\.\d+\.\d+/)?.[0] ?? 'unknown'
-  const where = locate('claude')
+  const where = located ?? 'unknown location'
   if (atLeast(found, CLAUDE_MINIMUM)) console.log(`claude code: ${found} (${where})`)
   else {
     problems++
