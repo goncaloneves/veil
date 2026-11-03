@@ -257,7 +257,7 @@ describe('references and placeholders', () => {
 describe('values inside variables', () => {
   it('takes a compose URL value for a secret by its name, never only because it looks random', async () => {
     const random = seeded(121)
-    const [listeners, key, pw] = [`PLAINTEXT://kafka:9092,${fakeToken(random, 30)}://0.0.0.0:29092`, fakeToken(random, 40), fakeToken(random, 16)]
+    const [listeners, key, pw] = [`PLAINTEXT_HOST://${fakeToken(random, 30)}:29092,PLAINTEXT://kafka:9092`, fakeToken(random, 40), fakeToken(random, 16)]
     const compose = `services:\n  kafka:\n    environment:\n      KAFKA_ADVERTISED_LISTENERS: ${listeners}\n      API_KEY: ${key}\n      DB_PASSWORD: ${pw}\n`
     const loaded = await loadSecrets(memoryFs({ '/repo/docker-compose.yml': compose }), { home: '/home/me', root: '/repo', vars: {} }, parseConfig('[sources]\nhome = false\nsystem = false\nenvironment = false\n').config)
     assert.deepEqual(values(loaded.secrets).sort(), [key, pw].sort())

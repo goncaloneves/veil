@@ -357,8 +357,9 @@ describe('veil rules: review findings', () => {
       'session_key=self._get_or_create_session_key(),',
       '\tauth := Authentication{\n',
       "'--store-password=[password for storefronts]:store-password:' \\",
-      '"auth.password": "Contrase\u00f1a",',
-      '"password": "\u041f\u0430\u0440\u043e\u043b\u044c\u0412\u0445\u043e\u0434",',
+      '"password": "\u041f\u0430\u0440\u043e\u043b\u044c:"',
+      '"forgot_password": "\u00bfContrase\u00f1a?"',
+      '"auth.password": "Passw\u00f6rter:"',
       'auth = None',
       "'PASSWORD': os.environ.get('POSTGRES_PASSWORD'),",
     ])
@@ -373,6 +374,9 @@ describe('veil rules: review findings', () => {
       ['connection-string-password', `Server=db;Database=app;Password=${printed};`, printed],
       ['connection-string-password', `Server=db;Password=${php};Trusted=no`, php],
       ['connection-string-password', `Server=db;Password=[${printed};`, printed],
+      ['password-assignment', `password: x${printed}(9)!`, `x${printed}(9)!`],
+      ['password-assignment', `password: (9${printed}`, `(9${printed}`],
+      ['password-assignment', `password: [9${printed}`, `[9${printed}`],
     ])
   })
 
