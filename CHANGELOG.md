@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.2.6](https://github.com/goncaloneves/veil/compare/v0.2.5...v0.2.6) (2026-11-03)
+
+
+### Bug Fixes
+
+* read a listed INI file that starts with a [section] line, and a one-line password file that starts with a bracket ([0499f94](https://github.com/goncaloneves/veil/commit/0499f946fd85a27249de9184e5917234f99574ba))
+* veil doctor passes without Claude Code on PATH, and fails when claude is there but does not run ([d83e152](https://github.com/goncaloneves/veil/commit/d83e1524f50258ef42c1a262898f8c468cc1b7c2))
+* veil doctor tells a missing claude from a broken one by locating it, not by its exit code ([f84dcce](https://github.com/goncaloneves/veil/commit/f84dccef4e6a9d442ba419d5a6c54d0e7e0e91d6))
+
+
+### Documentation
+
+* correct every claim a claim-by-claim audit against the code found wrong or overstated ([ffd0fdc](https://github.com/goncaloneves/veil/commit/ffd0fdceb398a2b48252acff51e1e2d354568b87))
+
 ## [0.2.5](https://github.com/goncaloneves/veil/compare/v0.2.4...v0.2.5) (2026-11-03)
 
 
