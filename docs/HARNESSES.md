@@ -6,7 +6,7 @@ veil works with any model and almost any coding agent. How it plugs in depends o
 |---|---|---|
 | **Claude Code** | Native plugin | Every text the model reads, except `--append-system-prompt`, and everything the transcript keeps |
 | **Pi** | Native extension | Every text the model reads, compaction and tree summaries included but not `/compact` instructions, and the saved session, including your own `!` commands |
-| **opencode** | Native plugin | Every text the model reads except opencode's own side requests; its database and its `tool-output` folder can still hold tool output, diffs and the edits veil restored |
+| **opencode** | Native plugin | Every text the model reads except opencode's own side requests; its database, its `tool-output` folder and its `run --format json` output can still hold tool output, diffs and the edits veil restored |
 | **Kilo Code** | Native plugin (opencode format) | Same as opencode |
 | **Codex**, **Copilot CLI**, **Grok Build**, **Gemini CLI**, **Crush**, **Goose**, **Aider**, **Cline**, **Continue**, **Zed**, **grok-cli**, any tool that takes a custom API URL | `veil proxy` | Every text the agent sends; its own session files may still hold tool output and restored edits |
 | **Cursor**, **Warp** | Not supported | Their model traffic goes through their own servers, so nothing local can mask it |
