@@ -472,6 +472,27 @@ files = ['C:\Users\dev\app\*.env', '~\secrets\db-password', '~/secrets/service.j
     assert.deepEqual(loaded.warnings, [])
   })
 
+  it('reads INI files that start with a [section] line, and a password file that starts with a bracket, but not broken JSON', async () => {
+    const random = seeded(95)
+    const [ini, colon, commented, led, table, json, flag, loose, inline, bracketed] = [...Array.from({ length: 9 }, () => fake.hex(random, 32)), `{${fake.hex(random, 20)}`]
+    const { config } = parseConfig('[sources]\nproject = false\nhome = false\nsystem = false\nenvironment = false\nfiles = ["~/conf/*"]\n')
+    const files = {
+      '/home/me/conf/app.ini': `[default]\napi_token = ${ini}\n\n[other]\nregion = eu-west-1\n`,
+      '/home/me/conf/colon.ini': `[default]\r\napi_token: ${colon}\r\n`,
+      '/home/me/conf/commented.ini': `[default]\napi_token = ${commented} ; main\n`,
+      '/home/me/conf/led.ini': `; written by hand\n[default] ; main\napi_token = ${led} ; main\n`,
+      '/home/me/conf/table.toml': `[[servers]]\napi_token = "${table}"\n`,
+      '/home/me/conf/args.json': JSON.stringify({ servers: { x: { args: ['--token', flag] } } }),
+      '/home/me/conf/list.json': `[\n  {"api_key": "${json}"}\n]\n`,
+      '/home/me/conf/loose.json5': `{\n  api_key: "${loose}}",\n}\n`,
+      '/home/me/conf/inline.json5': `{api_key: "${inline}"}`,
+      '/home/me/conf/db-password': `${bracketed}\n`,
+    }
+    const loaded = await loadSecrets(pathFs(files), { home: '/home/me', root: '/repo', vars: {} }, config)
+    assert.deepEqual([...byValue(loaded).keys()].sort(), [ini, colon, commented, led, table, json, flag, bracketed].sort())
+    assert.deepEqual([...loaded.warnings].sort(), ['sources.files: /home/me/conf/inline.json5 holds no values veil recognises', 'sources.files: /home/me/conf/loose.json5 holds no values veil recognises'])
+  })
+
   it('warns about a missing file, a pattern with no matches, and a file with no values', async () => {
     const { config } = parseConfig('[sources]\nproject = false\nhome = false\nsystem = false\nenvironment = false\nfiles = ["~/missing.env", "~/conf/*.env", "~/notes.txt"]\n')
     const loaded = await loadSecrets(pathFs({ '/home/me/conf/readme.md': 'x', '/home/me/notes.txt': 'line one\nline two\n' }), { home: '/home/me', root: '/repo', vars: {} }, config)

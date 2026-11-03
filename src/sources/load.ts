@@ -1,11 +1,12 @@
 import type { Config } from '../config/config.ts'
 import { basename, caseInsensitive, expandHome, isAbsolutePath, isFilesystemRoot, joinPath, lastSeparator, normalizePath, pathKey } from '../core/paths.ts'
 import type { Secret } from '../core/types.ts'
-import { parseGitConfig, rawSecret, treeParser, type Parser } from './credentials.ts'
+import { parseGitConfig, rawSecret, treeParser, treeSecrets, type Parser } from './credentials.ts'
 import { parseDotenv } from './dotenv.ts'
 import type { EnvPolicy } from './env-policy.ts'
 import { ENVIRONMENT_KEYS, LOCATION_KEYS, environmentSecrets, parseEnviron, secretFileVariables } from './environment.ts'
 import { composerAuth, dotenvParser, homeCatalog, projectParser, projectRootFiles, systemCatalog, systemRawDirs, type DirSource, type FileSource } from './places.ts'
+import { parseJson } from './tree.ts'
 import { errorMessage, globRegExp } from './util.ts'
 
 export { ENVIRONMENT_KEYS, LOCATION_KEYS, expandHome }
@@ -162,11 +163,20 @@ async function settle<T>(items: readonly T[], limit: number, run: (item: T, inde
   await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker))
 }
 
+const INI_SECTION = /^(?:[;#][^\n]*\n\s*)*\[\[?[^\]\r\n]+\]\]?[ \t]*(?:[;#][^\r\n]*)?\r?\n/
+const KEY_SHAPED = /^[{[]\s*["']?[\w.-]+["']?\s*:/
+
 function detect(text: string, policy: EnvPolicy): { readonly kind: string; readonly parse: Parser } {
   const trimmed = text.trim()
-  if (/^[{[]/.test(trimmed)) return { kind: 'json', parse: treeParser('file', {}, 'json') }
+  const multiline = /\n/.test(trimmed)
+  const bracketed = /^[{[]/.test(trimmed)
+  const tree = bracketed ? parseJson(trimmed) : undefined
+  if (tree !== undefined) return { kind: 'json', parse: (_text, source) => treeSecrets(tree, source, 'file') }
+  const ini = INI_SECTION.test(trimmed)
+  if (bracketed && (multiline ? !ini : KEY_SHAPED.test(trimmed))) return { kind: 'json', parse: () => [] }
+  if (ini) return { kind: 'config', parse: treeParser('file', {}, 'keyed') }
   if (parseDotenv(text).some(entry => /[^=]/.test(entry.value))) return { kind: 'dotenv', parse: dotenvParser(policy) }
-  if (!/\n/.test(trimmed)) return { kind: 'raw', parse: (value, source) => rawSecret(basename(source))(value, source) }
+  if (!multiline) return { kind: 'raw', parse: (value, source) => rawSecret(basename(source))(value, source) }
   return { kind: 'config', parse: treeParser('file', {}, 'keyed') }
 }
 

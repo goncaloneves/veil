@@ -173,10 +173,16 @@ function argSecrets(tree: unknown, source: string, prefix: string): Secret[] {
 export function treeParser(prefix: string, options: PickOptions = {}, format: 'json' | 'toml' | 'keyed' | 'auto' = 'json'): Parser {
   return (text, source) => {
     const json = format === 'json' || (format === 'auto' && /^\s*[{[]/.test(text))
-    const tree = json ? parseJson(text) : undefined
-    const leaves: Leaf[] = json ? (tree === undefined ? [] : treeLeaves(tree)) : format === 'keyed' ? keyedLeaves(text) : tomlLeaves(text)
-    return [...pickSecrets(leaves, source, prefix, options), ...(tree === undefined ? [] : argSecrets(tree, source, prefix))]
+    if (json) {
+      const tree = parseJson(text)
+      return tree === undefined ? [] : treeSecrets(tree, source, prefix, options)
+    }
+    return pickSecrets(format === 'keyed' ? keyedLeaves(text) : tomlLeaves(text), source, prefix, options)
   }
+}
+
+export function treeSecrets(tree: unknown, source: string, prefix: string, options: PickOptions = {}): Secret[] {
+  return [...pickSecrets(treeLeaves(tree), source, prefix, options), ...argSecrets(tree, source, prefix)]
 }
 
 export const parseClaudeJson: Parser = (text, source) => {
