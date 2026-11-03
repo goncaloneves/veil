@@ -151,9 +151,17 @@ async function patch(text: string, restorer: Restorer): Promise<Walked> {
       out.push(section.text)
       continue
     }
-    const restored = restorer.veil.restorePlaceholders(section.text, section.path, target)
-    refused ??= restored.refused
-    out.push(restored.text)
+    for (const line of section.text.split(/(?<=\n)/)) {
+      if (!line.includes('[veil:')) {
+        out.push(line)
+        continue
+      }
+      const restored = restorer.veil.restorePlaceholders(line, section.path, target)
+      refused ??= restored.refused
+      const marker = /^[+\- ]/.test(line) ? line.charAt(0) : ''
+      const body = restored.text.replace(/\r?\n$/, '')
+      out.push(marker ? body.replace(/\r?\n/g, newline => newline + marker) + restored.text.slice(body.length) : restored.text)
+    }
   }
   return { value: out.join(''), ...(refused === undefined ? {} : { refused }) }
 }

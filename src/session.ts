@@ -348,6 +348,7 @@ export class Veil {
       if (value === undefined) refused ??= `veil cannot resolve ${whole} in this session. Read ${path} again so veil can map its secrets, then retry the edit.`
       else if (mode === 'never') refused ??= `veil's restore mode is never: it will not write the value behind ${whole}, and writing the placeholder would replace real content. Ask the user to make this edit.`
       else if (!vault.isCurrent(label)) refused ??= `${whole} no longer matches a value in your secret files, so veil will not write it. Read ${path} again and retry.`
+      else if (label.includes('~joined') && vault.text(label.replace(/~.*$/, '')) !== undefined) refused ??= `${whole} covers ${label.replace(/~.*$/, '')} together with the text around it, such as line numbers, so veil cannot write it back. Write [veil:${label.replace(/~.*$/, '')}] for the whole value instead.`
       else if (value.length < minLength) refused ??= `veil keeps ${whole} out of ${path} because a value this short goes back only into its own file. Reference the value through an environment variable instead, or ask the user to add it.`
       else refused ??= `veil keeps ${whole} out of ${path} because that file does not already hold it. Reference the value through an environment variable instead, or ask the user to add it.`
       return whole

@@ -79,7 +79,7 @@ veil does not mask:
 - images, audio, video and PDFs, and the fields an API needs unchanged, such as ids, model names, signatures, MCP server authorization tokens, thinking blocks and encrypted reasoning;
 - a secret only a pattern rule would catch inside a single unbroken base64-like string over 1 MB in a JSON value, or in a whole `veil proxy` text body or upload part: veil checks such a string for loaded values only;
 - text an agent sends without veil seeing it: Claude Code's `--append-system-prompt`, opencode's own side requests, instructions typed after Pi's `/compact`;
-- what an agent stores outside veil's reach: opencode's database and `tool-output` folder, the session files of agents behind `veil proxy`, Pi's streamed `bash` output and its full-output log;
+- what an agent stores outside veil's reach: opencode's database, `tool-output` folder and `run --format json` output, the session files of agents behind `veil proxy`, Pi's streamed `bash` output and its full-output log;
 - anything a model does on purpose to recover a value, such as probing what veil masks or using the secret through a program it runs;
 - agents whose model calls go through their own servers (Cursor, Warp).
 

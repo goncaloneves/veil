@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url'
 import { describe, it } from 'node:test'
 import { CLAUDE_TOOLS, OPENCODE_TOOLS, PI_TOOLS, PROXY_TOOLS, checkInput, namesFile, patchSections, restoreArguments, restoreInput, type Restorer } from '../src/restore.ts'
 import { NOTE, Veil, type SessionFs } from '../src/session.ts'
-import { fake, memoryFs, seeded } from './helpers.ts'
+import { fake, fakeToken, keyHeader, memoryFs, seeded } from './helpers.ts'
 
 const TOKEN = fake.hex(seeded(80), 40)
 const QUOTED = `${fake.hex(seeded(81), 20)}"\\x`
@@ -71,6 +71,22 @@ describe('restore', () => {
       const padded = await checkInput({ path, content: 'K=[veil:API_TOKEN]' }, r, 'write')
       assert.ok('deny' in padded, JSON.stringify(path))
     }
+  })
+
+  it('keeps every line of a restored multi-line value inside its patch line, and explains a placeholder that covers line numbers', async () => {
+    const key = `${keyHeader('RSA ')}\n${fakeToken(seeded(130), 64)}\n${fakeToken(seeded(131), 64)}\n${keyHeader('RSA ', { end: true })}`
+    const files = { ...FILES, '/repo/.env': `${FILES['/repo/.env']}PRIVATE_KEY="${key}"\n` }
+    const r = await restorer(PROXY_TOOLS, files)
+    const patch = '*** Begin Patch\n*** Update File: .env\n@@\n DB_PASSWORD=x\n+PRIVATE_KEY_COPY="[veil:PRIVATE_KEY]"\n*** End Patch'
+    const out = await restoreArguments(patch, r, 'apply_patch')
+    const body = out.split('\n').slice(3, -1)
+    assert.ok(body.length > 3 && body.slice(1).every(line => line.startsWith('+')), JSON.stringify(body.map(line => line.slice(0, 2))))
+    assert.ok(out.includes(key.split('\n')[1] ?? 'x'))
+    const numbered = r.veil.mask(`  5  PRIVATE_KEY="${key.split('\n').join('\n  6  ')}"`)
+    const label = numbered.match(/\[veil:([^\]]*~joined[^\]]*)\]/)?.[1]
+    assert.ok(label)
+    const refused = await checkInput({ path: '/repo/.env', content: `PRIVATE_KEY="[veil:${label}]"` }, r, 'write')
+    assert.ok('deny' in refused && /Write \[veil:PRIVATE_KEY\] for the whole value/.test(refused.deny), 'deny' in refused ? refused.deny : '')
   })
 
   it('splits a patch on any header the real parsers accept, and never restores into one it cannot pin', async () => {
