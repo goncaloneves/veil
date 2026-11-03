@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.2.5](https://github.com/goncaloneves/veil/compare/v0.2.4...v0.2.5) (2026-11-03)
+
+
+### Bug Fixes
+
+* a compose environment or config value counts as a secret by its name, not only because it looks random ([f3a4741](https://github.com/goncaloneves/veil/commit/f3a474155bb691ed803e13409407e844f4715cf7))
+* a multi-line value restored into an apply_patch line keeps every line in the patch, and a placeholder that covers line numbers says which whole value to write ([ec70290](https://github.com/goncaloneves/veil/commit/ec702908b8fb071e42bd53f45593788a03b88fb1))
+* keep masking one-word keys in compose files, whole non-ASCII passwords and bracketed connection-string passwords; refuse a multi-line value in a patch line with no marker ([4714e9a](https://github.com/goncaloneves/veil/commit/4714e9a5a3df55de56c3f5d832c3db3c67732670))
+* mask base64 wrapped with JSON-escaped line breaks, short passwords in JSON fields and shell quotes, and values as URL serializers encode them ([b7825c8](https://github.com/goncaloneves/veil/commit/b7825c845447cf4148afe8d244098ba1e022d9ff))
+* password rules leave code and translations readable: calls, member paths, type annotations, brackets and non-ASCII values ([4a2a072](https://github.com/goncaloneves/veil/commit/4a2a0725102e3286cbe0d70f18806c3d845d0903))
+* the gitleaks Dropbox rule no longer reads a type name such as ICredentialType as a token ([31a05a5](https://github.com/goncaloneves/veil/commit/31a05a50c778a316ce3977df0355606ebb8a8c49))
+
+
+### Documentation
+
+* opencode's run --format json output is among the files veil cannot reach ([463e0d9](https://github.com/goncaloneves/veil/commit/463e0d964ba8286a93a8a1f3ff096993ff856e3b))
+
 ## [0.2.4](https://github.com/goncaloneves/veil/compare/v0.2.3...v0.2.4) (2026-11-01)
 
 
