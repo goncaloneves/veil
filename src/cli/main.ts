@@ -2,7 +2,7 @@
 import { spawnSync } from 'node:child_process'
 import { readFile, stat } from 'node:fs/promises'
 import type { AddressInfo } from 'node:net'
-import { resolve } from 'node:path'
+import { join, resolve } from 'node:path'
 import { parseArgs } from 'node:util'
 import pkg from '../../package.json' with { type: 'json' }
 import { STARTER_CONFIG } from '../config/config.ts'
@@ -136,13 +136,16 @@ async function config(action: string | undefined): Promise<number> {
 
 const WINDOWS = process.platform === 'win32'
 
-function run(command: string, args: readonly string[]): { ok: boolean; out: string } {
-  const result = WINDOWS ? spawnSync('cmd.exe', ['/d', '/s', '/c', command, ...args], { encoding: 'utf8' }) : spawnSync(command, args, { encoding: 'utf8' })
-  return { ok: result.status === 0, out: `${result.stdout ?? ''}${result.stderr ?? ''}` }
+function run(command: string, args: readonly string[]): { ok: boolean; missing: boolean; out: string } {
+  const result = WINDOWS
+    ? spawnSync(process.env.ComSpec || join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'cmd.exe'), ['/d', '/s', '/c', command, ...args], { encoding: 'utf8' })
+    : spawnSync(command, args, { encoding: 'utf8' })
+  const missing = (result.error as NodeJS.ErrnoException | undefined)?.code === 'ENOENT' || (WINDOWS && result.status === 9009)
+  return { ok: result.status === 0, missing, out: `${result.stdout ?? ''}${result.stderr ?? ''}` }
 }
 
 function locate(command: string): string {
-  const found = WINDOWS ? run('where', [command]) : run('sh', ['-c', `command -v ${command}`])
+  const found = WINDOWS ? run('where', [command]) : run('/bin/sh', ['-c', `command -v ${command}`])
   return found.ok ? (found.out.split(/\r?\n/)[0] ?? '').trim() : 'unknown location'
 }
 
@@ -153,8 +156,12 @@ async function doctor(): Promise<number> {
   console.log(report(instance, current, { version: pkg.version, home: host.home }).split('\n').filter(line => !line.startsWith('masked this session')).join('\n'))
   let problems = current.warnings.length
   const version = run('claude', ['--version'])
+  if (version.missing && locate('claude') === 'unknown location') {
+    console.log('claude code: not found on PATH, which only the Claude Code plugin needs')
+    return problems > 0 ? 1 : 0
+  }
   if (!version.ok) {
-    console.log('claude code: not found on PATH')
+    console.log(`claude code: claude --version failed at ${locate('claude')}`)
     return 1
   }
   const found = version.out.match(/\d+\.\d+\.\d+/)?.[0] ?? 'unknown'

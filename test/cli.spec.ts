@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { spawn, spawnSync } from 'node:child_process'
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { basename, join } from 'node:path'
+import { basename, delimiter, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { after, describe, it } from 'node:test'
 import { fake, seeded } from './helpers.ts'
@@ -144,6 +144,45 @@ describe('veil cli', () => {
     assert.match(first, /veil proxy on http:\/\/127\.0\.0\.1:\d+ for /)
     assert.match(first, /for ~[\\/]proxy-root; start your agent in /)
     assert.ok(first.endsWith(basename(dir)), first)
+  })
+
+  it('doctor passes without Claude Code on PATH, since only its plugin needs it', () => {
+    const empty = mkdtempSync(join(tmpdir(), 'veil-path-'))
+    try {
+      const result = spawnSync(process.execPath, [cli, 'doctor'], { cwd: dir, encoding: 'utf8', env: { ...env(), PATH: empty } })
+      assert.match(result.stdout, /claude code: not found on PATH, which only the Claude Code plugin needs/)
+      assert.equal(result.status, 0, result.stdout + result.stderr)
+    } finally {
+      rmSync(empty, { recursive: true, force: true })
+    }
+  })
+
+  it('doctor fails when claude is on PATH but does not run', () => {
+    const bin = mkdtempSync(join(tmpdir(), 'veil-path-'))
+    try {
+      writeFileSync(join(bin, 'claude'), '#!/bin/sh\nexit 3\n', { mode: 0o755 })
+      writeFileSync(join(bin, 'claude.cmd'), '@exit /b 3\r\n')
+      const result = spawnSync(process.execPath, [cli, 'doctor'], { cwd: dir, encoding: 'utf8', env: { ...env(), PATH: bin } })
+      assert.match(result.stdout, /claude code: claude --version failed/)
+      assert.equal(result.status, 1)
+    } finally {
+      rmSync(bin, { recursive: true, force: true })
+    }
+  })
+
+  it('doctor fails when claude is on PATH but cannot start', () => {
+    const bin = mkdtempSync(join(tmpdir(), 'veil-path-'))
+    try {
+      writeFileSync(join(bin, 'claude'), '#!/nonexistent/veil-interpreter\n', { mode: 0o755 })
+      writeFileSync(join(bin, 'claude.cmd'), '@veil-missing-command\r\n')
+      const system = process.platform === 'win32' ? [join(process.env.SystemRoot ?? 'C:\\Windows', 'System32')] : []
+      const result = spawnSync(process.execPath, [cli, 'doctor'], { cwd: dir, encoding: 'utf8', env: { ...env(), PATH: [bin, ...system].join(delimiter) } })
+      assert.match(result.stdout, /claude code: claude --version failed at /)
+      assert.doesNotMatch(result.stdout, /unknown location/)
+      assert.equal(result.status, 1)
+    } finally {
+      rmSync(bin, { recursive: true, force: true })
+    }
   })
 
   it('prints help and rejects unknown commands', () => {
