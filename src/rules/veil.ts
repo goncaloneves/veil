@@ -148,6 +148,7 @@ export const RULE_ALLOWLISTS: Readonly<Record<string, readonly Allowlist[]>> = {
     { patterns: ['^pk_(?:live|test)_'], stopwords: [], target: 'secret' },
   ],
   jwt: [{ patterns: [`^[^.]+\\.[^.]*(?:${ANON_ROLE})`], stopwords: [], target: 'secret' }],
+  'dropbox-api-token': [{ patterns: ['^[A-Z]{0,2}[a-z]+(?:[A-Z][a-z]+)+$'], stopwords: [], target: 'secret' }],
 }
 
 const URL_PLACEHOLDERS: Allowlist = {

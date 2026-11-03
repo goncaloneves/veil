@@ -50,6 +50,7 @@ const CODE: Record<string, readonly string[]> = {
     'const pass = (expectation: string): Result => ({',
     'export async function login(page, username = env.E2E_USER, password = env.E2E_PASSWD) {',
     'secretAccessKey: accessKey,',
+    'const dropboxApiType: ICredentialType = {',
   ],
   terraform: [
     'password = var.db_password',
@@ -96,6 +97,7 @@ describe('real code in many languages', () => {
       `'password' => '${symbol}',`,
       `    [password] => ${value}`,
       `Server=db;Password=${value};`,
+      `dropbox_token = "${fakeToken(random, 13)}4x"`,
     ]) assert.ok(hitsIn(line).length > 0, line)
   })
 })
