@@ -77,10 +77,15 @@ const WORDS: Allowlist = {
 const LITERALS = [PLACEHOLDERS, CODE]
 const FREE_TEXT = [PLACEHOLDERS, CODE, WORDS]
 
-const NOT_CODE = `(?![A-Za-z_$]+(?:\\??\\.[A-Za-z_$]+)*[,;)}\\]]+(?=[\\s"'\`]|$))(?!\\{)`
+const CODE_PATH = `[A-Za-z_$][\\w$]*(?:\\??\\.[A-Za-z_$][\\w$]*)*`
+const CODE_END = `[,;:)}\\]]+(?=[\\s"'\`]|$)`
+const NOT_CALL = `(?!${CODE_PATH}\\()`
+const NOT_CODE = `(?![A-Za-z_$]+(?:\\??\\.[A-Za-z_$]+)*${CODE_END})(?![A-Za-z_$][\\w$]*(?:\\??\\.[A-Za-z_$][\\w$]*)+${CODE_END})${NOT_CALL}(?![\\[<({])`
+const NON_ASCII = '\\u0080-\\uffff'
 
-function quotedOrBare(quotedMin: number, bareMin: number, bareGuard = ''): string {
-  return `(?:"((?:[^"\\\\\\s]|\\\\.){${quotedMin},200})"|'([^'\\s]{${quotedMin},200})'|\`([^\`\\s]{${quotedMin},200})\`|${bareGuard}([^\\s"'\`=][^\\s"'\`]{${bareMin - 1},199}))`
+function quotedOrBare(quotedMin: number, bareMin: number, bareGuard = '', exclude = ''): string {
+  const tail = exclude ? `(?![${exclude}])` : ''
+  return `(?:"((?:[^"\\\\\\s${exclude}]|\\\\.){${quotedMin},200})"|'([^'\\s${exclude}]{${quotedMin},200})'|\`([^\`\\s${exclude}]{${quotedMin},200})\`|${bareGuard}([^\\s"'\`=${exclude}][^\\s"'\`${exclude}]{${bareMin - 1},199})${tail})`
 }
 
 function rule(id: string, pattern: string, keywords: readonly string[], options: Partial<Rule> = {}): Rule {
@@ -184,7 +189,7 @@ export const VEIL_RULES: readonly Rule[] = [
   rule('google-oauth-refresh-token', '(?<![\\w/])1\\/\\/0[\\w-]{40,512}', ['1//0'], { secretGroup: 0, entropy: 3.5, allowlists: [] }),
   rule('google-oauth-client-secret', '\\bGOCSPX-[A-Za-z0-9_-]{28}(?![\\w-])', ['gocspx-'], { secretGroup: 0, entropy: 3, allowlists: [] }),
   rule('supabase-token', '\\b(?:sbp_[a-f0-9]{40}|sb_secret_[A-Za-z0-9_-]{20,200})\\b', ['sbp_', 'sb_secret_'], { secretGroup: 0, entropy: 3, allowlists: [] }),
-  rule('password-assignment', `(?<![\\w.;?&-])${STRONG_KEY}["']?\\]?\\??${SPACE}${VALUE_ASSIGN}${SPACE}${quotedOrBare(6, 8, NOT_CODE)}`, PASSWORD_KEYWORDS, {
+  rule('password-assignment', `(?<![\\w.;?&-])${STRONG_KEY}["']?\\]?\\??${SPACE}${VALUE_ASSIGN}${SPACE}${quotedOrBare(6, 8, NOT_CODE, NON_ASCII)}`, PASSWORD_KEYWORDS, {
     entropy: 2,
     allowlists: FREE_TEXT,
   }),
@@ -233,7 +238,7 @@ export const VEIL_RULES: readonly Rule[] = [
   ),
   rule(
     'connection-string-password',
-    `(?:^|;|["'])${SPACE}${anyOf(['password', 'pwd', 'user password'])}${SPACE}=(?!=)${SPACE}(?:'([^'\\n]{4,200})'|"([^"\\n]{4,200})"|\\{([^}\\n]{4,200})\\}|([^;'"\\s{][^;'"\\s]{3,199}))`,
+    `(?:^|;|["'])${SPACE}${anyOf(['password', 'pwd', 'user password'])}${SPACE}=(?!=)${SPACE}(?:'([^'\\n]{4,200})'|"([^"\\n]{4,200})"|\\{([^}\\n]{4,200})\\}|${NOT_CALL}([^;'"\\s{\\[][^;'"\\s]{3,199}))`,
     ['password', 'pwd'],
     { entropy: 1.5, allowlists: FREE_TEXT },
   ),
@@ -289,7 +294,7 @@ export const VEIL_RULES: readonly Rule[] = [
   ),
   rule(
     'session-cookie',
-    `(?<![\\w.-])(?:(?:[\\w.-]{0,60}[_.-])?${anyOf(['session', 'sess', 'sid', 'jwt'])}[\\w.-]{0,40}|${anyOf(['phpsessid', 'jsessionid', 'aspsessionid'])}\\w{0,40})=(?!=)([^;\\s"',]{16,500})`,
+    `(?<![\\w.-])(?:(?:[\\w.-]{0,60}[_.-])?${anyOf(['session', 'sess', 'sid', 'jwt'])}[\\w.-]{0,40}|${anyOf(['phpsessid', 'jsessionid', 'aspsessionid'])}\\w{0,40})=(?!=)${NOT_CALL}([^;\\s"',]{16,500})`,
     ['sess', 'sid', 'jwt'],
     { entropy: 3.5, allowlists: [PLACEHOLDERS, { patterns: ['^S-1-\\d'], stopwords: [], target: 'secret' }] },
   ),
@@ -352,7 +357,7 @@ export const VEIL_RULES: readonly Rule[] = [
   rule('mongo-auth', `\\.auth\\(${SPACE}(["'])[^"'\\n]{1,64}\\1${SPACE},${SPACE}(["'])((?:(?!\\2)[^\\n]){4,200})\\2`, ['.auth('], { secretGroup: 3 }),
   rule(
     'redis-auth',
-    `(?:^|\\n|>)${SPACE}(?:(?:AUTH|auth)(?:${GAP}[^\\s"']{1,200})?|requirepass|masterauth|${ci('config')}${GAP}${ci('set')}${GAP}(?:requirepass|masterauth))${GAP}(["']?)([^\\s"']{4,200})\\1${SPACE}(?=\\r?\\n|$)`,
+    `(?:^|\\n|>)${SPACE}(?:(?:AUTH|auth)(?!${SPACE}:?=)(?:${GAP}[^\\s"']{1,200})?|requirepass|masterauth|${ci('config')}${GAP}${ci('set')}${GAP}(?:requirepass|masterauth))${GAP}(["']?)([^\\s"']{4,200})\\1${SPACE}(?=\\r?\\n|$)`,
     ['auth', 'requirepass'],
     { secretGroup: 2, entropy: 1.5 },
   ),

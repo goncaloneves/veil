@@ -344,6 +344,19 @@ describe('veil rules: review findings', () => {
       'f"pass={len(passed)} fail={len(failed)}"',
       "'password' => env('DB_PASSWORD', ''),",
       ":text, [type='password'], [type='file'], select",
+      'export function auth(username: string, password: string): string {',
+      'seedSigningSecret(type: string, secret: string): Promise<void>;',
+      'password = models.CharField(_("password"), max_length=128)',
+      "const elPassword = document.querySelector('#password')!;",
+      'tempPasswd = pbkdf2.Key([]byte(passwd), []byte(salt), 10000, 50, sha256.New)',
+      'match: VarsMatcher{"secret": []string{"topsecret"}},',
+      '<tr><th>Password1:</th><td><ul class="errorlist">',
+      'export async function login(page, username = env.E2E_USER, password = env.E2E_PASSWD) {',
+      'const pass = (expectation: string): Result => ({',
+      '"auth.forgot_password": "\u30d1\u30b9\u30ef\u30fc\u30c9\u3092\u304a\u5fd8\u308c\u3067\u3059\u304b",',
+      'session_key=self._get_or_create_session_key(),',
+      '\tauth := Authentication{\n',
+      "'--store-password=[password for storefronts]:store-password:' \\",
       "'PASSWORD': os.environ.get('POSTGRES_PASSWORD'),",
     ])
     const [php, ruby, printed] = [fake.symbolPassword(seeded(95)), fake.symbolPassword(seeded(96)), `${fakeToken(seeded(97), 11)}9`]
@@ -354,6 +367,8 @@ describe('veil rules: review findings', () => {
       ['password-assignment', `    [db_password] => ${printed}`, printed],
       ['password-assignment', `{user: bob, password: ${printed}}`, printed],
       ['password-assignment', `password=${printed},`, printed],
+      ['connection-string-password', `Server=db;Database=app;Password=${printed};`, printed],
+      ['connection-string-password', `Server=db;Password=${php};Trusted=no`, php],
     ])
   })
 
