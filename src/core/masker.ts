@@ -76,6 +76,7 @@ export class Masker {
   #rules: CompiledRules
   #needles: Needle[] = []
   #retired: Needle[] = []
+  #contextual = new Set<string>()
   #index = new NeedleIndex([])
 
   constructor(options: MaskerOptions) {
@@ -111,6 +112,10 @@ export class Masker {
     return this.#needles.some(needle => needle.text === value)
   }
 
+  contextual(value: string): boolean {
+    return this.#contextual.has(value)
+  }
+
   #setNeedles(settings: MaskerSettings): void {
     const found = needlesFor(settings.secrets, settings)
     this.vault.setCurrent(found.map(needle => needle.text))
@@ -119,6 +124,7 @@ export class Masker {
     const retired = [...this.#retired, ...this.#needles].filter(needle => !current.has(needle.text))
     this.#retired = [...new Map(retired.map(needle => [needle.text, needle])).values()]
     this.#needles = needles.sort((a, b) => b.text.length - a.text.length)
+    this.#contextual = new Set(needles.filter(needle => needle.scope !== 'anywhere').map(needle => needle.text))
     const all = [...this.#needles, ...this.#retired]
     this.#index = new NeedleIndex(all)
   }

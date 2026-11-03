@@ -74,7 +74,8 @@ veil makes one promise and one best effort. Everything else is out of scope, and
 veil does not mask:
 
 - a secret it has not loaded and whose format no rule knows, such as a short password typed into a prompt with nothing around it;
-- a loaded value transformed any other way: reversed, hex-encoded, split by other text, encrypted or escaped more than once;
+- a loaded value transformed any other way: reversed, hex-encoded, split by other text, encrypted, escaped more than once, backslash-escaped character by character (`printf %q`), or written as UTF-16 inside a JSON-escaped string;
+- a password masked only where it is assigned (short, a default word, or the project's name) shown anywhere else: after its flag in an exec-form array or YAML list (`["--requirepass", "…"]`), in a table cell such as a SQL result, as a YAML block scalar, under a generic `value` key as in `terraform output -json`, or in SQL other than `PASSWORD '…'` and `IDENTIFIED BY '…'`;
 - the visible part of a token shown cut off, such as `sk-abc123…` or a truncated table column;
 - images, audio, video and PDFs, and the fields an API needs unchanged, such as ids, model names, signatures, MCP server authorization tokens, thinking blocks and encrypted reasoning;
 - a secret only a pattern rule would catch inside a single unbroken base64-like string over 1 MB in a JSON value, or in a whole `veil proxy` text body or upload part: veil checks such a string for loaded values only;

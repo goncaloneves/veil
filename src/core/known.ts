@@ -106,6 +106,12 @@ function jsonForms(value: string): string[] {
   return [plain, plain.replaceAll('/', '\\/'), ascii(false), ascii(false).replaceAll('/', '\\/'), ascii(true)]
 }
 
+function percentEncoded(char: string): string {
+  return utf8Encode(char)
+    .map(byte => `%${byte.toString(16).toUpperCase().padStart(2, '0')}`)
+    .join('')
+}
+
 function urlForms(value: string): string[] {
   let component: string
   try {
@@ -115,7 +121,9 @@ function urlForms(value: string): string[] {
   }
   const strict = component.replace(/[!'()*]/g, char => `%${char.charCodeAt(0).toString(16).toUpperCase()}`)
   const tilde = strict.replaceAll('~', '%7E')
-  const bases = [component, strict, strict.replaceAll('%2F', '/'), strict.replaceAll('%20', '+'), tilde, tilde.replaceAll('%20', '+')]
+  const userinfo = value.replace(/[\x00-\x20"#<>?`{}\/:;=@[\\\]^|\u007f-\u{10ffff}]/gu, percentEncoded)
+  const form = value.replace(/[^A-Za-z0-9*\-._ ]/gu, percentEncoded).replaceAll(' ', '+')
+  const bases = [component, strict, strict.replaceAll('%2F', '/'), strict.replaceAll('%20', '+'), tilde, tilde.replaceAll('%20', '+'), userinfo, form]
   return bases.flatMap(base => [base, base.replace(/%[0-9A-F]{2}/g, escape => escape.toLowerCase())])
 }
 
@@ -163,6 +171,7 @@ export function needlesFor(secrets: readonly Secret[], options: NeedleOptions): 
       add(value, '', CONTEXT_MIN, scope)
       if (encodings.has('json')) for (const form of jsonForms(value)) add(form, '~json', CONTEXT_MIN, scope)
       if (encodings.has('url')) for (const form of urlForms(value)) add(form, '~url', CONTEXT_MIN, scope)
+      for (const form of shellForms(value)) add(form, '~escaped', CONTEXT_MIN, scope)
       if (encodings.has('base64') && value.length >= options.minLength) for (const form of base64Forms(value)) add(form, '~base64', options.minLength)
       continue
     }

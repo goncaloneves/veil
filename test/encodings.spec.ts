@@ -44,6 +44,19 @@ describe('base64 forms', () => {
     }
   })
 
+  it('finds base64 wrapped with JSON-escaped line breaks, as the GitHub contents API returns a file', () => {
+    const m = known([{ name: 'API_TOKEN', value: pat, source: '/r/.env' }])
+    for (const eol of ['\n', '\r\n']) {
+      const content = (base64Encode(`NODE_ENV=production\nAPI_TOKEN=${pat}\nPORT=3000\n`).match(/.{1,60}/g) ?? []).join(eol)
+      for (const text of [JSON.stringify({ name: '.env', encoding: 'base64', content: `${content}${eol}` }, null, 2), JSON.stringify({ content })]) {
+        const out = m.mask(text)
+        assert.ok(out.hits.some(hit => hit.label.startsWith('API_TOKEN~base64')), JSON.stringify(eol))
+        const joined = out.text.replace(/\\r|\\n/g, '')
+        for (const core of base64Cores(utf8Encode(pat))) assert.ok(!joined.includes(core.slice(4, 24)), JSON.stringify(eol))
+      }
+    }
+  })
+
   it('finds a Basic credential whose user name is not a multiple of three bytes long', () => {
     const password = fake.password(random)
     const m = known([{ name: 'REGISTRY_PASSWORD', value: password, source: '/r/.env' }])
@@ -91,6 +104,21 @@ describe('Windows encodings', () => {
       assert.ok(out.hits.some(hit => hit.label.startsWith('API_TOKEN~utf16')), text.slice(0, 60))
       assert.ok(!out.text.includes(bytes.slice(24, 40).join(',')))
     }
+  })
+
+  it('finds a value as the WHATWG URL serializer and URLSearchParams encode it', () => {
+    const password = `p@ss'w+rd/${fakeToken(random, 10)}*!(x)~ y$`
+    const m = known([{ name: 'DB_PASSWORD', value: password, source: '/r/.env', strong: true }])
+    const url = new URL('postgres://db.internal:5432/app')
+    url.username = 'app'
+    url.password = password
+    const href = m.mask(`connectionString: '${url.href}'`)
+    assert.ok(href.hits.some(hit => hit.label.startsWith('DB_PASSWORD~url')), url.href)
+    assert.ok(!href.text.includes(url.password))
+    const form = new URLSearchParams({ grant_type: 'password', code: password }).toString()
+    const body = m.mask(form)
+    assert.ok(body.hits.some(hit => hit.label.startsWith('DB_PASSWORD~url')), form)
+    assert.ok(!body.text.includes(form.slice(form.indexOf('code=') + 5)))
   })
 
   it('finds lowercase, strict RFC 3986 and form URL encodings', () => {

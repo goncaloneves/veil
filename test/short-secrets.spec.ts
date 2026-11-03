@@ -216,6 +216,28 @@ describe('short secret tiers', () => {
     }
   })
 
+  it('masks a short password where it is assigned inside shell and PowerShell quotes', () => {
+    const quoted = `${fakeToken(random, 1, LOWER)}'B9!`
+    const dollar = `${fakeToken(random, 1, LOWER)}$"7Q`
+    const m = masker([
+      { name: 'REDIS_PASSWORD', value: quoted, source: '/r/.env', strong: true },
+      { name: 'SMTP_PASSWORD', value: dollar, source: '/r/.env', strong: true },
+    ])
+    const forms: [string, string][] = [
+      [`export REDIS_PASSWORD='${quoted.replaceAll("'", "'\\''")}'`, quoted],
+      [`$env:REDIS_PASSWORD = '${quoted.replaceAll("'", "''")}'`, quoted],
+      [`declare -x SMTP_PASSWORD="${dollar.replace(/["$`\\]/g, '\\$&')}"`, dollar],
+      [`$env:SMTP_PASSWORD = "${dollar.replace(/[$"`]/g, '`$&')}"`, dollar],
+    ]
+    for (const [text, value] of forms) {
+      const out = m.mask(text).text
+      assert.match(out, /\[veil:(?:REDIS|SMTP)_PASSWORD~escaped(?:\.\d+)?\]/, `${JSON.stringify(text)} -> ${JSON.stringify(out)}`)
+      assert.ok(!out.includes(value.slice(1, 4)), `${JSON.stringify(text)} -> ${JSON.stringify(out)}`)
+    }
+    const prose = `it was ${quoted.replaceAll("'", "''")} once`
+    assert.equal(m.mask(prose).text, prose)
+  })
+
   it('masks a token-scope value split by grep colour codes', () => {
     const m = masker([{ name: 'SHORT_KEY', value: mixed, source: '/r/.env' }])
     assert.ok(!m.mask(`KEY=\x1b[01;31m\x1b[K${mixed}\x1b[m\x1b[K`).text.includes(mixed))

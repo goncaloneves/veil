@@ -26,7 +26,8 @@ veil keeps secret values out of what a coding agent sends to its model and store
 
 - A program the agent runs reads real values, as it must to work. veil changes what the model sees, not what your code sees.
 - A secret veil has never seen and that matches no known format.
-- A value transformed in a way veil does not try: split by other text, hex-encoded, reversed, encrypted or escaped more than once.
+- A value transformed in a way veil does not try: split by other text, hex-encoded, reversed, encrypted, escaped more than once, backslash-escaped character by character, or UTF-16 inside a JSON-escaped string.
+- A password veil masks only where it is assigned (short, a default word, or the project's name) shown outside an assignment, such as in a table cell, after its flag in an argument list, or under a generic `value` key.
 - The agent's own interface showing a row in the instant before plugins rewrite it.
 - Text the agent adds after plugins run, such as Claude Code's `--append-system-prompt`.
 - A restored value seen by the agent's permission step: in Claude Code's auto mode its classifier, and an approval card shown through Remote Control, see the edit veil restored. Set `[restore] mode = "never"` if you use either.

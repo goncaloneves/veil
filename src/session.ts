@@ -283,7 +283,7 @@ export class Veil {
   }
 
   maskValue(value: unknown, skip?: Skip, options: MaskOptions = {}): unknown {
-    return this.#walk(value, skip, this.#deadline(), undefined, 'structural', options, 0)
+    return this.#walk(value, skip, this.#deadline(), undefined, 'structural', options, 0, undefined)
   }
 
   protected maskWithin(deadline: number): (text: string) => string {
@@ -294,16 +294,32 @@ export class Veil {
     return this.#deadline()
   }
 
-  #walk(value: unknown, skip: Skip | undefined, deadline: number, key: string | undefined, mode: Mode, options: MaskOptions, depth: number): unknown {
+  #assigned(value: string, key: string, deadline: number, options: MaskOptions): string {
+    const name = key.replace(/[^A-Za-z0-9_.$-]+/g, '_')
+    const framed = `${name}=${value}`
+    let masked: string
+    try {
+      masked = this.masker.mask(framed, { deadline, knownOnly: true }).text
+    } catch (error) {
+      if (options.strict) throw error
+      return WITHHELD
+    }
+    return masked.startsWith(`${name}=`) ? masked.slice(name.length + 1) : value
+  }
+
+  #walk(value: unknown, skip: Skip | undefined, deadline: number, key: string | undefined, mode: Mode, options: MaskOptions, depth: number, assignedTo: string | undefined): unknown {
     if (depth > MAX_DEPTH && value !== null && (typeof value === 'object' || typeof value === 'string')) return WITHHELD
     if (typeof value === 'string') {
       if (mode === 'schema' && key !== undefined && SCHEMA_KEYWORDS.has(key)) return value
       if (mode === 'structural' && key !== undefined && skip?.keys?.has(key)) return value
       if (skip?.media && (isMediaUrl(value, key) || (key !== undefined && MEDIA_ARRAYS.has(key) && value.length >= 64 && BASE64_TEXT.test(value)))) return value
-      return this.#maskText(value, deadline, options, value.length > KNOWN_ONLY_LENGTH && BINARY_TEXT.test(value))
+      const knownOnly = value.length > KNOWN_ONLY_LENGTH && BINARY_TEXT.test(value)
+      const masked = this.#maskText(value, deadline, options, knownOnly)
+      if (masked !== value || knownOnly || assignedTo === undefined || !this.masker.contextual(value)) return masked
+      return this.#assigned(value, assignedTo, deadline, options)
     }
     if (Array.isArray(value)) {
-      const out = value.map(item => this.#walk(item, skip, deadline, key, mode, options, depth + 1))
+      const out = value.map(item => this.#walk(item, skip, deadline, key, mode, options, depth + 1, assignedTo))
       return out.every((item, index) => item === value[index]) ? value : out
     }
     if (value !== null && typeof value === 'object') {
@@ -313,11 +329,12 @@ export class Veil {
       if (mode === 'structural' && (skip?.types ? typeof record.type === 'string' && skip.types.has(record.type) && !svgData(record) : isMedia(record))) return value
       let changed = false
       const out: Record<string, unknown> = {}
+      const pair = typeof record.name === 'string' ? record.name : typeof record.key === 'string' ? record.key : undefined
       for (const [field, item] of Object.entries(record)) {
         const free = mode === 'structural' && depth > 0 && skip?.free?.has(field)
         const next: Mode = free ? 'free' : mode === 'structural' && skip?.schema?.has(field) ? 'schema' : mode
         const name = mode === 'free' ? this.#maskText(field, deadline, options) : field
-        const masked = this.#walk(item, skip, deadline, field, next, options, depth + 1)
+        const masked = this.#walk(item, skip, deadline, field, next, options, depth + 1, pair !== undefined && field.toLowerCase() === 'value' ? pair : field)
         if (masked !== item || name !== field) changed = true
         assign(out, name, masked)
       }

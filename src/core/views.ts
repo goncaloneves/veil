@@ -9,7 +9,7 @@ export type Range = {
   readonly end: number
 }
 
-const LINE_BREAK = /\\?\r?\n[ \t]*/g
+const LINE_BREAK = /(?:\\?\r?\n|\\r\\n|\\n)[ \t]*/g
 const ANSI = /\x1b(?:\[[0-?]*[ -\/]*[@-~]|\][^\x07\x1b]*(?:\x07|\x1b\\)|[@-Z\\-_])|(?:\\u001[bB]|\\x1[bB]|\\033|\\e)\[[0-?]{0,32}[ -\/]{0,4}[@-~]/g
 const HAS_ANSI = /\x1b|\\(?:u001[bB]|x1[bB]|033|e)\[/
 const INTERLEAVED = /(?:[^\0]\0){8,}/g
@@ -82,7 +82,7 @@ function* matches(text: string, pattern: RegExp): Generator<Range> {
 }
 
 export function joinedLines(text: string): View | undefined {
-  return text.includes('\n') ? removing(text, matches(text, LINE_BREAK)) : undefined
+  return text.includes('\n') || text.includes('\\n') ? removing(text, matches(text, LINE_BREAK)) : undefined
 }
 
 export function withoutAnsi(text: string): View | undefined {

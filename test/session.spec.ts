@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import { VeilSession, type AdapterFs } from '../src/adapters/claude-code/session.ts'
 import { CLAUDE_TOOLS, checkInput } from '../src/restore.ts'
+import { maskPayload } from '../src/wire/request.ts'
 import { fake, memoryFs, seeded } from './helpers.ts'
 
 const random = seeded(40)
@@ -163,6 +164,27 @@ describe('VeilSession', () => {
     assert.equal(veil.refreshDue('/repo/src/a.ts'), false)
     assert.equal(veil.refreshDue(), false)
     assert.equal(new VeilSession().refreshDue('/repo/.env'), false)
+  })
+
+  it('masks a default-word password assigned in a JSON object it walks field by field', async () => {
+    const veil = new VeilSession()
+    await veil.start(
+      adapterFs({ '/home/me/.config/veil/config.toml': '[sources]\nhome = false\nenvironment = false\n', '/repo/.env': 'POSTGRES_PASSWORD=postgres\n' }),
+      { home: '/home/me', root: '/repo', cwd: '/repo', platform: 'linux', vars: {} },
+    )
+    const record = { structuredContent: { password: 'postgres', env: [{ name: 'POSTGRES_PASSWORD', value: 'postgres' }], passwords: ['postgres'], image: 'postgres', note: 'postgres', args: ['postgres'] } }
+    assert.deepEqual(veil.maskValue(record), {
+      structuredContent: { password: '[veil:POSTGRES_PASSWORD]', env: [{ name: 'POSTGRES_PASSWORD', value: '[veil:POSTGRES_PASSWORD]' }], passwords: ['[veil:POSTGRES_PASSWORD]'], image: 'postgres', note: 'postgres', args: ['postgres'] },
+    })
+    const bodies: [unknown, 'gemini' | 'bedrock' | 'anthropic'][] = [
+      [{ contents: [{ role: 'user', parts: [{ functionResponse: { name: 'config', response: { password: 'postgres' } } }] }] }, 'gemini'],
+      [{ messages: [{ role: 'user', content: [{ toolResult: { toolUseId: 't1', content: [{ json: { password: 'postgres' } }] } }] }] }, 'bedrock'],
+      [{ messages: [{ role: 'assistant', content: [{ type: 'tool_use', id: 't1', name: 'connect', input: { password: 'postgres' } }] }] }, 'anthropic'],
+    ]
+    for (const [body, dialect] of bodies) {
+      const masked = JSON.stringify(maskPayload(veil, body, dialect, { note: false }))
+      assert.ok(masked.includes('"password":"[veil:POSTGRES_PASSWORD]"'), `${dialect}: ${masked}`)
+    }
   })
 
   it('withholds instead of throwing when masking fails', async () => {
