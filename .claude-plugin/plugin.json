@@ -4,10 +4,10 @@
   "description": "Masks your secrets before the model sees them: the real values from your secret files plus gitleaks patterns, restored only inside file edits.",
   "author": {
     "name": "Gonçalo Neves",
-    "url": "https://github.com/goncaloneves"
+    "url": "https://github.com/gamaro7"
   },
-  "homepage": "https://github.com/goncaloneves/veil",
-  "repository": "https://github.com/goncaloneves/veil",
+  "homepage": "https://github.com/gamaro7/veil",
+  "repository": "https://github.com/gamaro7/veil",
   "license": "MIT",
   "keywords": [
     "security",

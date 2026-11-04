@@ -7,6 +7,6 @@ const file = new URL('../.claude-plugin/marketplace.json', import.meta.url)
 const marketplace = JSON.parse(await readFile(file, 'utf8')) as { plugins: { name: string; source: unknown }[] }
 const entry = marketplace.plugins.find(plugin => plugin.name === 'veil')
 if (!entry) throw new Error('no veil entry in marketplace.json')
-entry.source = { source: 'github', repo: 'goncaloneves/veil', ref: tag }
+entry.source = { source: 'github', repo: 'gamaro7/veil', ref: tag }
 await writeFile(file, `${JSON.stringify(marketplace, null, 2)}\n`)
 console.log(`marketplace pinned to ${tag}`)

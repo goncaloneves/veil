@@ -7,7 +7,7 @@ export type AdapterTarget = 'pi' | 'opencode' | 'kilo'
 
 export const ADAPTER_TARGETS: readonly AdapterTarget[] = ['pi', 'opencode', 'kilo']
 
-const RELEASES = 'https://github.com/goncaloneves/veil/releases/download'
+const RELEASES = 'https://github.com/gamaro7/veil/releases/download'
 
 export function bundleName(target: AdapterTarget): string {
   return target === 'pi' ? 'veil-pi.js' : 'veil-opencode.js'

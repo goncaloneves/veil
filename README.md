@@ -8,9 +8,9 @@
 <p align="center"><strong>Masks your secrets before your coding agent's model sees them.</strong></p>
 
 <p align="center">
-  <a href="https://github.com/goncaloneves/veil/actions/workflows/ci.yml"><img alt="ci" src="https://github.com/goncaloneves/veil/actions/workflows/ci.yml/badge.svg"></a>
-  <a href="https://github.com/goncaloneves/veil/releases"><img alt="release" src="https://img.shields.io/github/v/release/goncaloneves/veil?color=8B5CF6"></a>
-  <a href="LICENSE"><img alt="license" src="https://img.shields.io/github/license/goncaloneves/veil?color=6366F1"></a>
+  <a href="https://github.com/gamaro7/veil/actions/workflows/ci.yml"><img alt="ci" src="https://github.com/gamaro7/veil/actions/workflows/ci.yml/badge.svg"></a>
+  <a href="https://github.com/gamaro7/veil/releases"><img alt="release" src="https://img.shields.io/github/v/release/gamaro7/veil?color=8B5CF6"></a>
+  <a href="LICENSE"><img alt="license" src="https://img.shields.io/github/license/gamaro7/veil?color=6366F1"></a>
   <img alt="works with any model" src="https://img.shields.io/badge/models-any-8B5CF6">
   <img alt="no runtime dependencies" src="https://img.shields.io/badge/runtime%20dependencies-0-22C55E">
 </p>
@@ -101,17 +101,17 @@ When a new case comes up, the test is the promise: a loaded value that leaks is 
 In a Claude Code session in the terminal:
 
 ```text
-/plugin install veil --marketplace goncaloneves/veil
+/plugin install veil --marketplace gamaro7/veil
 ```
 
 Answer `y` to add the marketplace, then pick the user scope. Or from a shell:
 
 ```sh
-claude plugin marketplace add goncaloneves/veil
+claude plugin marketplace add gamaro7/veil
 claude plugin install veil@veil
 ```
 
-In the desktop app, click **+** next to the prompt box, then **Plugins**, **Add marketplace** with `goncaloneves/veil`, then **Add plugin**.
+In the desktop app, click **+** next to the prompt box, then **Plugins**, **Add marketplace** with `gamaro7/veil`, then **Add plugin**.
 
 veil starts in every new session. Run `/veil` in a session to see what it reads and what it masked. [INSTALL.md](INSTALL.md) covers updates, the command-line tool and uninstalling.
 

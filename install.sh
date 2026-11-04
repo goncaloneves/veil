@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-repo="goncaloneves/veil"
+repo="gamaro7/veil"
 version="${VEIL_VERSION:-latest}"
 home="${HOME:-}"
 if [ -n "${VEIL_INSTALL_DIR:-}" ]; then

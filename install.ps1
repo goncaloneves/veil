@@ -2,7 +2,7 @@
   $ErrorActionPreference = 'Stop'
   $ProgressPreference = 'SilentlyContinue'
 
-  $repo = 'goncaloneves/veil'
+  $repo = 'gamaro7/veil'
   $version = if ($env:VEIL_VERSION) { $env:VEIL_VERSION } else { 'latest' }
   $dir = if ($env:VEIL_INSTALL_DIR) { $env:VEIL_INSTALL_DIR } else { Join-Path $env:LOCALAPPDATA 'Programs\veil' }
   $arch = if ($env:PROCESSOR_ARCHITECTURE -eq 'ARM64' -or $env:PROCESSOR_ARCHITEW6432 -eq 'ARM64') { 'arm64' } else { 'x64' }

@@ -22,7 +22,7 @@ veil init opencode   # opencode: ~/.config/opencode/plugins/veil.js
 veil init kilo       # Kilo Code: ~/.config/kilo/plugin/veil.js
 ```
 
-Each `init` for Pi, opencode or Kilo downloads the adapter built for your veil version from the GitHub release and checks it against the release's `SHA256SUMS`. Without the CLI, download `veil-pi.js` or `veil-opencode.js` from the [latest release](https://github.com/goncaloneves/veil/releases/latest) into the folder shown.
+Each `init` for Pi, opencode or Kilo downloads the adapter built for your veil version from the GitHub release and checks it against the release's `SHA256SUMS`. Without the CLI, download `veil-pi.js` or `veil-opencode.js` from the [latest release](https://github.com/gamaro7/veil/releases/latest) into the folder shown.
 
 The native plugins restore and refuse edits exactly like the Claude Code plugin: a placeholder goes back only into its value's own file or a file that already holds it, and an edit holding any other placeholder is refused. They write real values only through the agent's own file tools; a third-party or MCP tool call that names a file and holds a placeholder is refused, since it would write the placeholder over real content.
 

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, it } from 'node:test'
@@ -120,5 +120,44 @@ describe('the Grok Build setup', () => {
     assert.match(grok, /models_base_url = "http:\/\/127\.0\.0\.1:8345\/xai\/v1"/)
     assert.match(grok, /XAI_API_KEY/)
     assert.doesNotMatch(grok, /xai_api_base_url/)
+  })
+})
+
+describe('the GitHub home', () => {
+  const pkg = JSON.parse(read('package.json')) as { homepage: string; author: string; bugs: string; repository: { url: string } }
+  const home = new URL(pkg.homepage)
+  const [owner, name] = home.pathname.slice(1).split('/')
+  const linked = ['README.md', 'INSTALL.md', 'docs/HARNESSES.md', '.claude-plugin/marketplace.json', '.claude-plugin/plugin.json', '.github/ISSUE_TEMPLATE/config.yml', 'install.sh', 'install.ps1', 'scripts/pin-marketplace.ts', 'src/cli/install.ts', 'src/cli/main.ts']
+  const github = readdirSync(join(root, '.github'), { recursive: true, encoding: 'utf8' }).map(file => `.github/${file.replaceAll('\\', '/')}`).filter(file => statSync(join(root, file)).isFile())
+  const slugs = (text: string) => [...text.matchAll(/(?:github(?:usercontent)?\.com[:/]|shields\.io\/github\/[a-z]+(?:\/[a-z]+)?\/|(?:--repo|-R|--signer-workflow|--signer-repo|--marketplace|marketplace add)[ =]|github:|MARKETPLACE = '|repo["']?\s*[:=]\s*["']?|`)([\w-]+)\/veil(?![\w-])/g)].map(match => match[1] ?? '')
+
+  it('is the GitHub repository package.json names, in every manifest', () => {
+    assert.equal(home.host, 'github.com')
+    assert.equal(name, 'veil')
+    assert.equal(pkg.repository.url, `git+https://github.com/${owner}/veil.git`)
+    assert.equal(pkg.bugs, `https://github.com/${owner}/veil/issues`)
+    assert.ok(pkg.author.endsWith(`(https://github.com/${owner})`))
+    const plugin = JSON.parse(read('.claude-plugin/plugin.json')) as { author: { url: string }; homepage: string; repository: string }
+    const marketplace = JSON.parse(read('.claude-plugin/marketplace.json')) as { owner: { url: string } }
+    for (const url of [plugin.author.url, marketplace.owner.url]) assert.equal(url, `https://github.com/${owner}`)
+    for (const url of [plugin.homepage, plugin.repository]) assert.equal(url, pkg.homepage)
+  })
+
+  it('is where veil is installed, updated, verified and linked from, and the old name appears only where INSTALL.md says veil moved', () => {
+    const moved = doc['INSTALL.md']!.match(/repository moved from `([\w-]+)\/veil` to `([\w-]+)\/veil`/)
+    assert.equal(moved?.[2], owner)
+    const previous = moved?.[1]
+    assert.ok(previous !== undefined && previous !== owner)
+    const old: string[] = []
+    for (const path of new Set([...DOCS, ...linked, ...github])) {
+      const found = slugs(doc[path] ?? read(path))
+      if (linked.includes(path)) assert.ok(found.length > 0, path)
+      for (const slug of found) {
+        if (slug === owner) continue
+        assert.equal(slug, previous, path)
+        old.push(path)
+      }
+    }
+    assert.deepEqual(old, ['INSTALL.md', 'INSTALL.md'])
   })
 })

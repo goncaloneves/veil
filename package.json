@@ -3,13 +3,13 @@
   "version": "0.2.6",
   "description": "Masks your secrets before your coding agent's model sees them.",
   "license": "MIT",
-  "author": "Gonçalo Neves (https://github.com/goncaloneves)",
-  "homepage": "https://github.com/goncaloneves/veil",
+  "author": "Gonçalo Neves (https://github.com/gamaro7)",
+  "homepage": "https://github.com/gamaro7/veil",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/goncaloneves/veil.git"
+    "url": "git+https://github.com/gamaro7/veil.git"
   },
-  "bugs": "https://github.com/goncaloneves/veil/issues",
+  "bugs": "https://github.com/gamaro7/veil/issues",
   "keywords": [
     "secrets",
     "masking",

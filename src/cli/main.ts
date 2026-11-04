@@ -38,9 +38,9 @@ Options for scan:
   --no-known                pattern rules only
   --no-rules                known values only
 
-https://github.com/goncaloneves/veil`
+https://github.com/gamaro7/veil`
 
-const MARKETPLACE = 'goncaloneves/veil'
+const MARKETPLACE = 'gamaro7/veil'
 const CLAUDE_MINIMUM = [2, 1, 287] as const
 
 async function readStdin(): Promise<string> {
@@ -228,7 +228,7 @@ const BASE_URLS: readonly [string, string][] = [
   ['GROK_BASE_URL', 'xai/v1'],
 ]
 
-const HARNESS_GUIDE = 'https://github.com/goncaloneves/veil/blob/main/docs/HARNESSES.md'
+const HARNESS_GUIDE = 'https://github.com/gamaro7/veil/blob/main/docs/HARNESSES.md'
 
 function routeTarget(target: string): string | undefined {
   try {

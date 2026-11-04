@@ -9,20 +9,20 @@ veil is a Claude Code plugin. Its repository is also its marketplace, so one lin
 **In a terminal session:**
 
 ```text
-/plugin install veil --marketplace goncaloneves/veil
+/plugin install veil --marketplace gamaro7/veil
 ```
 
-You see `Add marketplace?` naming `github:goncaloneves/veil`; answer `y`, then pick the **user** scope so veil runs in every project.
+You see `Add marketplace?` naming `github:gamaro7/veil`; answer `y`, then pick the **user** scope so veil runs in every project.
 
 **From a shell:**
 
 ```sh
-claude plugin marketplace add goncaloneves/veil
+claude plugin marketplace add gamaro7/veil
 claude plugin install veil@veil
 claude plugin list          # veil@veil ... enabled
 ```
 
-**In the desktop app:** click **+** next to the prompt box, then **Plugins**, **Add marketplace** with `goncaloneves/veil`, then **Add plugin**. A plugin installed from a terminal at the user scope also loads in the desktop app and in the VS Code and Cursor extension.
+**In the desktop app:** click **+** next to the prompt box, then **Plugins**, **Add marketplace** with `gamaro7/veil`, then **Add plugin**. A plugin installed from a terminal at the user scope also loads in the desktop app and in the VS Code and Cursor extension.
 
 veil needs Claude Code 2.1.287 or later, the first release with plugin mods, and 2.1.299 or later in the VS Code and Cursor extension. It is tested on 2.1.308 and 2.1.316. `veil doctor` checks the version on your PATH. Start a new session after installing, or run `/reload-plugins` in an open one, then run `/veil` to check it loaded.
 
@@ -38,6 +38,14 @@ claude plugin update veil@veil
 ```
 
 To update without thinking about it, open `/plugin`, go to **Marketplaces**, select `veil` and choose **Enable auto-update**.
+
+veil's repository moved from `goncaloneves/veil` to `gamaro7/veil`. A marketplace added under the old name reaches veil only through GitHub's redirect, which lasts only until someone else creates a repository under that name, and adding `gamaro7/veil` or running `veil init` refuses while it is there. Move it to the new name now:
+
+```sh
+claude plugin marketplace remove veil
+claude plugin marketplace add gamaro7/veil
+claude plugin install veil@veil
+```
 
 ### Uninstall
 
@@ -71,27 +79,29 @@ The `veil` command masks files and streams, lists what veil reads, checks your s
 On macOS and Linux:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/goncaloneves/veil/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/gamaro7/veil/main/install.sh | sh
 ```
 
 On Windows, in PowerShell:
 
 ```powershell
-irm https://raw.githubusercontent.com/goncaloneves/veil/main/install.ps1 | iex
+irm https://raw.githubusercontent.com/gamaro7/veil/main/install.ps1 | iex
 ```
 
-The scripts download the build for your system from the latest release, check it against the release's `SHA256SUMS` and install it to `~/.local/bin/veil`, or `%LOCALAPPDATA%\Programs\veil\veil.exe` on Windows. To pick a release or folder, set `VEIL_VERSION` or `VEIL_INSTALL_DIR` for the shell that runs the script: `curl -fsSL https://raw.githubusercontent.com/goncaloneves/veil/main/install.sh | VEIL_VERSION=v0.2.2 sh`, or in PowerShell `$env:VEIL_VERSION = 'v0.2.2'` before `irm … | iex`. To update, run the script again; to uninstall, delete the binary. Builds exist for macOS, Linux and Windows, on arm64 and x64, with musl builds for Alpine and similar systems. The x64 builds also run on older x64 processors without AVX2.
+The scripts download the build for your system from the latest release, check it against the release's `SHA256SUMS` and install it to `~/.local/bin/veil`, or `%LOCALAPPDATA%\Programs\veil\veil.exe` on Windows. To pick a release or folder, set `VEIL_VERSION` or `VEIL_INSTALL_DIR` for the shell that runs the script: `curl -fsSL https://raw.githubusercontent.com/gamaro7/veil/main/install.sh | VEIL_VERSION=v0.2.2 sh`, or in PowerShell `$env:VEIL_VERSION = 'v0.2.2'` before `irm … | iex`. To update, run the script again; to uninstall, delete the binary. Builds exist for macOS, Linux and Windows, on arm64 and x64, with musl builds for Alpine and similar systems. The x64 builds also run on older x64 processors without AVX2.
 
 Every release build carries a GitHub build attestation. To confirm a binary was built from this repository by its release workflow:
 
 ```sh
-gh attestation verify ~/.local/bin/veil --repo goncaloneves/veil --signer-workflow goncaloneves/veil/.github/workflows/release.yml
+gh attestation verify ~/.local/bin/veil --repo gamaro7/veil --signer-workflow gamaro7/veil/.github/workflows/release.yml
 ```
 
-You can also download a build from the [releases page](https://github.com/goncaloneves/veil/releases) yourself (then `chmod +x` it, and on macOS `xattr -d com.apple.quarantine` it, since the build is only ad-hoc signed), or run veil from a clone with Node 22.18 or later:
+Builds of v0.2.6 and earlier were made before the move: their attestations name `goncaloneves/veil`, so this check fails for them, and their `veil init` downloads from that name. Releases after v0.2.6 are attested as `gamaro7/veil`.
+
+You can also download a build from the [releases page](https://github.com/gamaro7/veil/releases) yourself (then `chmod +x` it, and on macOS `xattr -d com.apple.quarantine` it, since the build is only ad-hoc signed), or run veil from a clone with Node 22.18 or later:
 
 ```sh
-git clone https://github.com/goncaloneves/veil.git
+git clone https://github.com/gamaro7/veil.git
 node veil/src/cli/main.ts doctor
 ```
 
